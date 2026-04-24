@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mobile App Feel */
+html, body, #root {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Safe Area für Notch-Geräte */
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Swipe Card */
+.swipe-card {
+  touch-action: pan-y;
+  will-change: transform;
+}
+
+/* Scrollbar verstecken (Mobile-Feel) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Tinder Gradient */
+.tinder-gradient {
+  background: linear-gradient(135deg, #FE3C72 0%, #FF6B6B 100%);
+}
+
+/* Card Gradient Overlay für Kartenbilder */
+.card-gradient {
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
+}
+
+/* Pulsierender Match-Effekt */
+@keyframes match-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.9; }
+}
+.match-pulse { animation: match-pulse 2s ease-in-out infinite; }
+
+/* Notification slide down */
+@keyframes slide-down {
+  0% { transform: translateY(-100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-down { animation: slide-down 0.3s ease-out; }
+
+/* Audio Waveform Animation */
+@keyframes waveform {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}
+
+/* Recording pulse */
+@keyframes recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.recording-pulse { animation: recording-pulse 1s ease-in-out infinite; }
+
+/* Slide in from right (Audio Recorder) */
+@keyframes slideInRight {
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+/* Dark mode transitions */
+.dark-transition {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Servus Wiesn",
+  "short_name": "ServusWiesn",
+  "description": "Oktoberfest Tisch-Matching — Finde deinen Platz!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8ED",
+  "theme_color": "#1E3A5F",
+  "orientation": "portrait",
+  "icons": []
+}

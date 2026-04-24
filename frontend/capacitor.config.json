@@ -1,0 +1,21 @@
+{
+  "appId": "de.servuswiesn.app",
+  "appName": "Servus Wiesn",
+  "webDir": "dist",
+  "server": {
+    "url": "https://servuswiesn.de",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#ffffff",
+    "scrollEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#FE3C72",
+      "showSpinner": false
+    }
+  }
+}

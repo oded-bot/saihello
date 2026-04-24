@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tabler-db
+    environment:
+      POSTGRES_DB: tabler
+      POSTGRES_USER: tabler
+      POSTGRES_PASSWORD: tabler_secret_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tabler"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tabler-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: tabler-backend
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgres://tabler:tabler_secret_2026@postgres:5432/tabler
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: tabler_jwt_secret_change_in_production
+      JWT_EXPIRES_IN: 7d
+      UPLOAD_DIR: /app/uploads
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../backend/src:/app/src
+      - ../backend/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: tabler-frontend
+    environment:
+      VITE_API_URL: http://localhost:3000
+      VITE_WS_URL: ws://localhost:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../frontend/src:/app/src
+      - ../frontend/public:/app/public
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data:
+  redis_data:
