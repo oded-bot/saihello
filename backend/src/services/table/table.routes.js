@@ -20,7 +20,6 @@ router.get('/tents', tableController.getTents);
 
 // Tisch-Angebot erstellen (gesperrt wenn aktiv am Suchen)
 router.post('/offers', canOffer, [
-  body('tentId').isUUID().withMessage('Zelt auswählen'),
   body('totalSeats').isInt({ min: 1, max: 20 }).withMessage('1-20 Plätze'),
   body('availableSeats').isInt({ min: 1 }).withMessage('Mindestens 1 freier Platz'),
   body('date').isDate().withMessage('Gültiges Datum'),

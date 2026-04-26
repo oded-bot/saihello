@@ -1,4 +1,21 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Component } from 'react';
+
+class MapErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-6 text-red-600 text-sm">
+          <p className="font-bold mb-2">Kartenfehler:</p>
+          <pre className="whitespace-pre-wrap break-words">{this.state.error?.message}</pre>
+          <pre className="whitespace-pre-wrap break-words text-xs text-gray-500 mt-2">{this.state.error?.stack?.slice(0,500)}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './context/authStore';
 import useDarkMode from './hooks/useDarkMode';
@@ -25,6 +42,7 @@ import MatchesScreen from './components/Swipe/MatchesScreen';
 import ChatScreen from './components/Chat/ChatScreen';
 import ChatListScreen from './components/Chat/ChatListScreen';
 import ProfileScreen from './components/Profile/ProfileScreen';
+import MapScreen from './components/Map/MapScreen';
 import BottomNav from './components/Shared/BottomNav';
 import NotificationBanner from './components/Shared/NotificationBanner';
 
@@ -57,8 +75,8 @@ function AdminRoute({ children }) {
 
 function AppLayout({ children }) {
   return (
-    <div className="max-w-md mx-auto bg-white dark:bg-dark-bg relative flex flex-col dark-transition" style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)' }}>
-      <div className="flex-1 overflow-y-auto no-scrollbar pb-20">
+    <div className="max-w-md mx-auto bg-white dark:bg-dark-bg dark-transition" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <div className="pb-20">
         {children}
       </div>
       <BottomNav />
@@ -133,6 +151,13 @@ export default function App() {
         <Route path="/profile" element={
           <ProtectedRoute>
             <AppLayout><ProfileScreen /></AppLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/map" element={
+          <ProtectedRoute>
+            <MapErrorBoundary>
+              <MapScreen />
+            </MapErrorBoundary>
           </ProtectedRoute>
         } />
 

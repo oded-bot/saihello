@@ -55,6 +55,8 @@ app.use('/api/chat', require('./services/chat/chat.routes'));
 app.use('/api/upload', require('./services/upload/upload.routes'));
 app.use('/api/notifications', require('./services/notifications/notifications.routes'));
 app.use('/api/connect', require('./services/connect/connect.routes'));
+app.use('/api/seeker', require('./services/seeker/seeker.routes'));
+app.use('/api/map', require('./services/map/map.routes'));
 app.use('/api/admin', require('./services/admin/admin.routes'));
 
 // Health Check

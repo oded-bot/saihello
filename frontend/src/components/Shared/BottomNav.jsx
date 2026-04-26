@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Flame, Search, PlusCircle, MessageCircle, User } from 'lucide-react';
+import { Flame, Map, PlusCircle, MessageCircle, User } from 'lucide-react';
 import useNotifications from '../../hooks/useNotifications';
 import useLanguage from '../../hooks/useLanguage';
 
@@ -12,7 +12,7 @@ export default function BottomNav() {
 
   const tabs = [
     { path: '/home', icon: Flame, label: t('home') },
-    { path: '/discover', icon: Search, label: t('discover') },
+    { path: '/map', icon: Map, label: 'Karte' },
     { path: '/offer', icon: PlusCircle, label: t('offer') },
     { path: '/chat', icon: MessageCircle, label: t('chat'), badgeKey: 'totalBadge' },
     { path: '/profile', icon: User, label: t('profile') },

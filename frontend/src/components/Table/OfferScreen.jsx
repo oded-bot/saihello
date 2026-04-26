@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-
 import { useNavigate } from 'react-router-dom';
-import { Flame, Camera, Image, Clock, Users, ChevronDown, X, Edit2, Trash2 } from 'lucide-react';
+import { Flame, Camera, Image, Clock, Users, ChevronDown, X, Edit2, Trash2, ArrowLeft } from 'lucide-react';
 import api from '../../utils/api';
 import useLanguage from '../../hooks/useLanguage';
 import toast from 'react-hot-toast';
+import LocationPicker from '../Shared/LocationPicker';
 
 export default function OfferScreen() {
-  const [tents, setTents] = useState([]);
   const [form, setForm] = useState({
-
-    tentId: '',
     totalSeats: '',
     availableSeats: '',
     date: '',
@@ -33,23 +29,15 @@ export default function OfferScreen() {
   const [myOffers, setMyOffers] = useState([]);
   const [editingOfferId, setEditingOfferId] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [step, setStep] = useState(1);
+  const [location, setLocation] = useState({ locationText: '', locationLat: null, locationLng: null });
   const fileInputRef = useRef(null);
   const { t } = useLanguage();
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadTents();
     loadMyOffers();
   }, []);
-
-  async function loadTents() {
-    try {
-      const { data } = await api.get('/tables/tents');
-      setTents(data);
-    } catch (err) {
-      toast.error(t('loadTentsFailed'));
-    }
-  }
 
   async function loadMyOffers() {
     try {
@@ -61,7 +49,6 @@ export default function OfferScreen() {
   function handleEditOffer(offer) {
     setEditingOfferId(offer.id);
     setForm({
-      tentId: offer.tent_id,
       totalSeats: offer.total_seats?.toString() || '',
       availableSeats: offer.available_seats?.toString() || '',
       date: offer.date || '',
@@ -76,8 +63,7 @@ export default function OfferScreen() {
     });
     const sfw = offer.seats_for_women || 0;
     const sfm = offer.seats_for_men || 0;
-    const sag = offer.seats_any_gender || 0;
-    if (sfw === 0 && sfm === 0 && sag === 0) {
+    if (sfw === 0 && sfm === 0) {
       setGenderEgal(true);
       setSeatsForWomen(0);
       setSeatsForMen(0);
@@ -87,15 +73,16 @@ export default function OfferScreen() {
       setSeatsForMen(sfm);
     }
     if (offer.photo_url) setPhotoPreview(offer.photo_url);
-    // Nach oben scrollen zum Formular
+    setStep(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function cancelEdit() {
     setEditingOfferId(null);
     setShowForm(false);
+    setStep(1);
     setForm({
-      eventName: '', tentId: '', totalSeats: '', availableSeats: '', date: '',
+      totalSeats: '', availableSeats: '', date: '',
       timeFrom: '', timeUntil: '', groupDescription: '', pricePerSeat: '',
       groupAgeMin: '', groupAgeMax: '', preferredAgeMin: '', preferredAgeMax: '',
     });
@@ -104,6 +91,7 @@ export default function OfferScreen() {
     setSeatsForMen(0);
     setPhoto(null);
     setPhotoPreview(null);
+    setLocation({ locationText: '', locationLat: null, locationLng: null });
   }
 
   async function handleUpdateOffer() {
@@ -171,15 +159,22 @@ export default function OfferScreen() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
-  async function handleSubmit(e) {
+  function handleWeiter(e) {
     e.preventDefault();
-    if (editingOfferId) { handleUpdateOffer(); return; }
-
     if (!photo) {
       toast.error(t('uploadPhoto'));
       return;
     }
+    if (!form.date || !form.timeFrom || !form.timeUntil || !form.totalSeats || !form.availableSeats) {
+      toast.error('Bitte alle Pflichtfelder ausfüllen.');
+      return;
+    }
+    setStep(2);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
+  async function handleSubmitWithLocation(e) {
+    e.preventDefault();
     setLoading(true);
     try {
       const formData = new FormData();
@@ -196,16 +191,19 @@ export default function OfferScreen() {
         headers: { 'Content-Type': 'multipart/form-data' },
       }).catch(() => {});
 
+      const sfw = genderEgal ? 0 : seatsForWomen;
+      const sfm = genderEgal ? 0 : seatsForMen;
+      const sag = genderEgal ? 0 : seatsAnyGender;
+
       await api.post('/tables/offers', {
-        tentId: form.tentId,
         totalSeats: parseInt(form.totalSeats),
         availableSeats: parseInt(form.availableSeats),
         date: form.date,
         timeFrom: form.timeFrom,
         timeUntil: form.timeUntil,
-        seatsForWomen: genderEgal ? 0 : seatsForWomen,
-        seatsForMen: genderEgal ? 0 : seatsForMen,
-        seatsAnyGender: genderEgal ? 0 : seatsAnyGender,
+        seatsForWomen: sfw,
+        seatsForMen: sfm,
+        seatsAnyGender: sag,
         groupDescription: form.groupDescription || undefined,
         pricePerSeat: parseFloat(form.pricePerSeat) || 0,
         groupAgeMin: form.groupAgeMin ? parseInt(form.groupAgeMin) : undefined,
@@ -213,21 +211,13 @@ export default function OfferScreen() {
         preferredAgeMin: form.preferredAgeMin ? parseInt(form.preferredAgeMin) : undefined,
         preferredAgeMax: form.preferredAgeMax ? parseInt(form.preferredAgeMax) : undefined,
         photoUrl,
+        locationText: location.locationText || undefined,
+        locationLat: location.locationLat || undefined,
+        locationLng: location.locationLng || undefined,
       });
 
       toast.success(t('offerCreated'));
-      setShowForm(false);
-      setForm({
-        eventName: '', tentId: '', totalSeats: '', availableSeats: '', date: '',
-        timeFrom: '', timeUntil: '',
-        groupDescription: '', pricePerSeat: '',
-        groupAgeMin: '', groupAgeMax: '',
-        preferredAgeMin: '', preferredAgeMax: '',
-      });
-      setGenderEgal(true);
-      setSeatsForWomen(0);
-      setSeatsForMen(0);
-      removePhoto();
+      cancelEdit();
       loadMyOffers();
     } catch (err) {
       if (err.response?.data?.code === 'ROLE_LOCKED_SEARCHING') {
@@ -247,7 +237,7 @@ export default function OfferScreen() {
     <div className="px-5 pt-8 pb-8">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">{editingOfferId ? t('editOffer') : t('offerTitle')}</h1>
 
-      {/* Meine Angebote OBEN */}
+      {/* Meine Angebote */}
       {myOffers.length > 0 && !editingOfferId && (
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{t('yourOffers')}</h2>
@@ -257,7 +247,9 @@ export default function OfferScreen() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Flame size={16} className="text-tinder-pink" />
-                    <span className="font-medium text-gray-900 dark:text-white">{offer.tent_name}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {offer.location_text || 'Kein Ort angegeben'}
+                    </span>
                   </div>
                   <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                     offer.status === 'active' ? 'bg-tinder-green/10 text-tinder-green' : 'bg-gray-200 dark:bg-dark-elevated text-gray-500'
@@ -292,7 +284,6 @@ export default function OfferScreen() {
             ))}
           </div>
 
-          {/* Neues Angebot Button */}
           {!showForm && (
             <button
               onClick={() => setShowForm(true)}
@@ -304,240 +295,244 @@ export default function OfferScreen() {
         </div>
       )}
 
-      {/* Formular — immer sichtbar wenn keine Angebote oder showForm aktiv oder editingOfferId */}
+      {/* Formular */}
       {(myOffers.length === 0 || showForm || editingOfferId) && (
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* FOTO */}
-        <div>
-          <label className={labelClass}>
-            {t('photoRequired')}
-          </label>
-          {photoPreview ? (
-            <div className="relative w-full h-48 rounded-2xl overflow-hidden">
-              <img src={photoPreview} alt="Vorschau" className="w-full h-full object-cover" />
-              <button
-                type="button"
-                onClick={removePhoto}
-                className="absolute top-2 right-2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center"
-              >
-                <X size={16} className="text-white" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  fileInputRef.current.setAttribute('capture', 'environment');
-                  fileInputRef.current.click();
-                }}
-                className="flex-1 h-32 bg-tinder-pink/5 border-2 border-dashed border-tinder-pink/30 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-tinder-pink/10 transition"
-              >
-                <Camera size={28} className="text-tinder-pink" />
-                <span className="text-sm font-medium text-tinder-pink">{t('camera')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  fileInputRef.current.removeAttribute('capture');
-                  fileInputRef.current.click();
-                }}
-                className="flex-1 h-32 bg-gray-50 dark:bg-dark-card border-2 border-dashed border-gray-200 dark:border-dark-separator rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-gray-100 dark:active:bg-dark-elevated transition"
-              >
-                <Image size={28} className="text-gray-400" />
-                <span className="text-sm font-medium text-gray-400">{t('gallery')}</span>
-              </button>
-            </div>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handlePhotoSelect}
-            className="hidden"
-          />
-        </div>
-
-
-
-        {/* Zelt */}
-        <div>
-          <label className={labelClass}>{t('tent')} *</label>
-          <div className="relative">
-            <select
-              value={form.tentId}
-              onChange={(e) => update('tentId', e.target.value)}
-              className={`${inputClass} appearance-none`}
-              required
-            >
-              <option value="">{t('selectTent')}</option>
-              {tents.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-            <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          </div>
-        </div>
-
-        {/* Datum */}
-        <div>
-          <label className={labelClass}>{t('date')} *</label>
-          <input type="date" value={form.date} onChange={(e) => update('date', e.target.value)} className={inputClass} required />
-        </div>
-
-        {/* Zeit (30-Min-Schritte) */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass}>{t('timeFrom')} *</label>
-            <div className="relative">
-              <select value={form.timeFrom} onChange={(e) => update('timeFrom', e.target.value)} className={`${inputClass} appearance-none`} required>
-                <option value="">--:--</option>
-                {Array.from({length: 48}).map((_, i) => {
-                  const h = String(Math.floor(i/2)).padStart(2,'0');
-                  const m = i % 2 === 0 ? '00' : '30';
-                  return <option key={i} value={`${h}:${m}`}>{h}:{m}</option>;
-                })}
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-          <div>
-            <label className={labelClass}>{t('timeUntil')} *</label>
-            <div className="relative">
-              <select value={form.timeUntil} onChange={(e) => update('timeUntil', e.target.value)} className={`${inputClass} appearance-none`} required>
-                <option value="">--:--</option>
-                {Array.from({length: 48}).map((_, i) => {
-                  const h = String(Math.floor(i/2)).padStart(2,'0');
-                  const m = i % 2 === 0 ? '00' : '30';
-                  return <option key={i} value={`${h}:${m}`}>{h}:{m}</option>;
-                })}
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-        </div>
-
-        {/* Plätze */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass}>{t('totalSeats')} *</label>
-            <input type="number" min={1} max={20} value={form.totalSeats} onChange={(e) => update('totalSeats', e.target.value)} className={inputClass} required />
-          </div>
-          <div>
-            <label className={labelClass}>{t('freeSeats')} *</label>
-            <input type="number" min={1} max={form.totalSeats || 20} value={form.availableSeats} onChange={(e) => update('availableSeats', e.target.value)} className={inputClass} required />
-          </div>
-        </div>
-
-        {/* Geschlecht-Plätze */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('genderDoesntMatter')}</label>
-            <button
-              type="button"
-              onClick={() => { setGenderEgal(!genderEgal); setSeatsForWomen(0); setSeatsForMen(0); }}
-              className={`relative w-12 h-7 rounded-full transition-colors ${genderEgal ? 'bg-tinder-pink' : 'bg-gray-300 dark:bg-gray-600'}`}
-            >
-              <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${genderEgal ? 'translate-x-5' : 'translate-x-0.5'}`} />
-            </button>
-          </div>
-
-          {!genderEgal && availSeats > 0 && (
-            <div className="space-y-2 bg-gray-50 dark:bg-dark-elevated rounded-xl p-3 border border-gray-200 dark:border-dark-separator">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">{t('seatsForWomen')}:</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={availSeats - seatsForMen}
-                  value={seatsForWomen}
-                  onChange={(e) => setSeatsForWomen(Math.min(parseInt(e.target.value) || 0, availSeats - seatsForMen))}
-                  className="w-16 px-2 py-1 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-separator rounded-lg text-center text-sm text-gray-900 dark:text-white focus:outline-none focus:border-tinder-pink"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">{t('seatsForMen')}:</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={availSeats - seatsForWomen}
-                  value={seatsForMen}
-                  onChange={(e) => setSeatsForMen(Math.min(parseInt(e.target.value) || 0, availSeats - seatsForWomen))}
-                  className="w-16 px-2 py-1 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-separator rounded-lg text-center text-sm text-gray-900 dark:text-white focus:outline-none focus:border-tinder-pink"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">{t('seatsAnyGender')}:</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white w-16 text-center">{seatsAnyGender}</span>
-              </div>
-              {seatsForWomen + seatsForMen > availSeats && (
-                <p className="text-xs text-red-500">{t('seatSumError')}</p>
+        <>
+          {/* Step 1: Details */}
+          {(editingOfferId || step === 1) && (
+            <form onSubmit={editingOfferId ? (e) => { e.preventDefault(); handleUpdateOffer(); } : handleWeiter} className="space-y-4">
+              {/* FOTO */}
+              {!editingOfferId && (
+                <div>
+                  <label className={labelClass}>{t('photoRequired')}</label>
+                  {photoPreview ? (
+                    <div className="relative w-full h-48 rounded-2xl overflow-hidden">
+                      <img src={photoPreview} alt="Vorschau" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={removePhoto}
+                        className="absolute top-2 right-2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center"
+                      >
+                        <X size={16} className="text-white" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fileInputRef.current.setAttribute('capture', 'environment');
+                          fileInputRef.current.click();
+                        }}
+                        className="flex-1 h-32 bg-tinder-pink/5 border-2 border-dashed border-tinder-pink/30 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-tinder-pink/10 transition"
+                      >
+                        <Camera size={28} className="text-tinder-pink" />
+                        <span className="text-sm font-medium text-tinder-pink">{t('camera')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fileInputRef.current.removeAttribute('capture');
+                          fileInputRef.current.click();
+                        }}
+                        className="flex-1 h-32 bg-gray-50 dark:bg-dark-card border-2 border-dashed border-gray-200 dark:border-dark-separator rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-gray-100 dark:active:bg-dark-elevated transition"
+                      >
+                        <Image size={28} className="text-gray-400" />
+                        <span className="text-sm font-medium text-gray-400">{t('gallery')}</span>
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoSelect}
+                    className="hidden"
+                  />
+                </div>
               )}
-            </div>
+
+              {/* Datum */}
+              <div>
+                <label className={labelClass}>{t('date')} *</label>
+                <input type="date" value={form.date} onChange={(e) => update('date', e.target.value)} className={inputClass} required />
+              </div>
+
+              {/* Zeit */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>{t('timeFrom')} *</label>
+                  <div className="relative">
+                    <select value={form.timeFrom} onChange={(e) => update('timeFrom', e.target.value)} className={`${inputClass} appearance-none`} required>
+                      <option value="">--:--</option>
+                      {Array.from({length: 48}).map((_, i) => {
+                        const h = String(Math.floor(i/2)).padStart(2,'0');
+                        const m = i % 2 === 0 ? '00' : '30';
+                        return <option key={i} value={`${h}:${m}`}>{h}:{m}</option>;
+                      })}
+                    </select>
+                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>{t('timeUntil')} *</label>
+                  <div className="relative">
+                    <select value={form.timeUntil} onChange={(e) => update('timeUntil', e.target.value)} className={`${inputClass} appearance-none`} required>
+                      <option value="">--:--</option>
+                      {Array.from({length: 48}).map((_, i) => {
+                        const h = String(Math.floor(i/2)).padStart(2,'0');
+                        const m = i % 2 === 0 ? '00' : '30';
+                        return <option key={i} value={`${h}:${m}`}>{h}:{m}</option>;
+                      })}
+                    </select>
+                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Plätze */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>{t('totalSeats')} *</label>
+                  <input type="number" min={1} max={20} value={form.totalSeats} onChange={(e) => update('totalSeats', e.target.value)} className={inputClass} required />
+                </div>
+                <div>
+                  <label className={labelClass}>{t('freeSeats')} *</label>
+                  <input type="number" min={1} max={form.totalSeats || 20} value={form.availableSeats} onChange={(e) => update('availableSeats', e.target.value)} className={inputClass} required />
+                </div>
+              </div>
+
+              {/* Geschlecht */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('genderDoesntMatter')}</label>
+                  <button
+                    type="button"
+                    onClick={() => { setGenderEgal(!genderEgal); setSeatsForWomen(0); setSeatsForMen(0); }}
+                    className={`relative w-12 h-7 rounded-full transition-colors ${genderEgal ? 'bg-tinder-pink' : 'bg-gray-300 dark:bg-gray-600'}`}
+                  >
+                    <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${genderEgal ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+
+                {!genderEgal && availSeats > 0 && (
+                  <div className="space-y-2 bg-gray-50 dark:bg-dark-elevated rounded-xl p-3 border border-gray-200 dark:border-dark-separator">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{t('seatsForWomen')}:</span>
+                      <input
+                        type="number" min={0} max={availSeats - seatsForMen} value={seatsForWomen}
+                        onChange={(e) => setSeatsForWomen(Math.min(parseInt(e.target.value) || 0, availSeats - seatsForMen))}
+                        className="w-16 px-2 py-1 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-separator rounded-lg text-center text-sm text-gray-900 dark:text-white focus:outline-none focus:border-tinder-pink"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{t('seatsForMen')}:</span>
+                      <input
+                        type="number" min={0} max={availSeats - seatsForWomen} value={seatsForMen}
+                        onChange={(e) => setSeatsForMen(Math.min(parseInt(e.target.value) || 0, availSeats - seatsForWomen))}
+                        className="w-16 px-2 py-1 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-separator rounded-lg text-center text-sm text-gray-900 dark:text-white focus:outline-none focus:border-tinder-pink"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{t('seatsAnyGender')}:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white w-16 text-center">{seatsAnyGender}</span>
+                    </div>
+                    {seatsForWomen + seatsForMen > availSeats && (
+                      <p className="text-xs text-red-500">{t('seatSumError')}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Alter Gruppe */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">{t('groupAge')}</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" min={18} max={99} value={form.groupAgeMin} onChange={(e) => update('groupAgeMin', e.target.value)} placeholder={t('fromAge')} className={inputClass} />
+                  <input type="number" min={18} max={99} value={form.groupAgeMax} onChange={(e) => update('groupAgeMax', e.target.value)} placeholder={t('toAge')} className={inputClass} />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{t('leaveEmpty')}</p>
+              </div>
+
+              {/* Gewünschtes Alter Gäste */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">{t('guestAge')}</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" min={18} max={99} value={form.preferredAgeMin} onChange={(e) => update('preferredAgeMin', e.target.value)} placeholder={t('fromAgeGuest')} className={inputClass} />
+                  <input type="number" min={18} max={99} value={form.preferredAgeMax} onChange={(e) => update('preferredAgeMax', e.target.value)} placeholder={t('toAgeGuest')} className={inputClass} />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{t('leaveEmpty')}</p>
+              </div>
+
+              {/* Beschreibung */}
+              <div>
+                <label className={labelClass}>{t('description')}</label>
+                <textarea
+                  value={form.groupDescription}
+                  onChange={(e) => update('groupDescription', e.target.value)}
+                  placeholder={t('descriptionPlaceholder')}
+                  rows={3}
+                  maxLength={500}
+                  className={`${inputClass} resize-none`}
+                />
+              </div>
+
+              {editingOfferId ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="flex-1 py-3.5 bg-gray-100 dark:bg-dark-elevated text-gray-600 dark:text-gray-300 font-bold rounded-full transition text-base"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-3.5 tinder-gradient text-white font-bold rounded-full shadow-lg transition disabled:opacity-50 text-base"
+                  >
+                    {loading ? '...' : t('save')}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  className="w-full py-3.5 tinder-gradient text-white font-bold rounded-full shadow-lg hover:shadow-xl transition text-base"
+                >
+                  Weiter →
+                </button>
+              )}
+            </form>
           )}
-        </div>
 
-        {/* Alter Gruppe */}
-        <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">{t('groupAge')}</label>
-          <div className="grid grid-cols-2 gap-3">
-            <input type="number" min={18} max={99} value={form.groupAgeMin} onChange={(e) => update('groupAgeMin', e.target.value)} placeholder={t('fromAge')} className={inputClass} />
-            <input type="number" min={18} max={99} value={form.groupAgeMax} onChange={(e) => update('groupAgeMax', e.target.value)} placeholder={t('toAge')} className={inputClass} />
-          </div>
-          <p className="text-xs text-gray-400 mt-1">{t('leaveEmpty')}</p>
-        </div>
+          {/* Step 2: Ort */}
+          {!editingOfferId && step === 2 && (
+            <form onSubmit={handleSubmitWithLocation} className="space-y-5">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Wo findet euer Treffen statt? (optional)
+              </p>
 
-        {/* Gewünschtes Alter Gäste */}
-        <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">{t('guestAge')}</label>
-          <div className="grid grid-cols-2 gap-3">
-            <input type="number" min={18} max={99} value={form.preferredAgeMin} onChange={(e) => update('preferredAgeMin', e.target.value)} placeholder={t('fromAgeGuest')} className={inputClass} />
-            <input type="number" min={18} max={99} value={form.preferredAgeMax} onChange={(e) => update('preferredAgeMax', e.target.value)} placeholder={t('toAgeGuest')} className={inputClass} />
-          </div>
-          <p className="text-xs text-gray-400 mt-1">{t('leaveEmpty')}</p>
-        </div>
+              <LocationPicker onLocationChange={setLocation} />
 
-        {/* Beschreibung */}
-        <div>
-          <label className={labelClass}>{t('description')}</label>
-          <textarea
-            value={form.groupDescription}
-            onChange={(e) => update('groupDescription', e.target.value)}
-            placeholder={t('descriptionPlaceholder')}
-            rows={3}
-            maxLength={500}
-            className={`${inputClass} resize-none`}
-          />
-        </div>
-
-        {editingOfferId ? (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className="flex-1 py-3.5 bg-gray-100 dark:bg-dark-elevated text-gray-600 dark:text-gray-300 font-bold rounded-full transition text-base"
-            >
-              {t('cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={handleUpdateOffer}
-              disabled={loading}
-              className="flex-1 py-3.5 tinder-gradient text-white font-bold rounded-full shadow-lg transition disabled:opacity-50 text-base"
-            >
-              {loading ? '...' : t('save')}
-            </button>
-          </div>
-        ) : (
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 tinder-gradient text-white font-bold rounded-full shadow-lg hover:shadow-xl transition disabled:opacity-50 text-base"
-          >
-            {loading ? t('publishing') : t('publishOffer')}
-          </button>
-        )}
-      </form>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className="flex-1 py-3.5 bg-gray-100 dark:bg-dark-elevated text-gray-700 dark:text-gray-300 font-bold rounded-full transition text-base flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft size={18} /> Zurück
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-3.5 tinder-gradient text-white font-bold rounded-full shadow-lg hover:shadow-xl transition disabled:opacity-50 text-base"
+                >
+                  {loading ? t('publishing') : t('publishOffer')}
+                </button>
+              </div>
+            </form>
+          )}
+        </>
       )}
     </div>
   );

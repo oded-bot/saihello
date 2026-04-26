@@ -15,8 +15,8 @@ db.pragma('foreign_keys = ON');
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
-    phone TEXT UNIQUE NOT NULL,
-    phone_verified INTEGER DEFAULT 0,
+    username TEXT UNIQUE NOT NULL,
+    phone TEXT UNIQUE,
     email TEXT UNIQUE,
     password_hash TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now')),
@@ -61,7 +61,10 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS table_offers (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    tent_id TEXT NOT NULL REFERENCES tents(id),
+    tent_id TEXT REFERENCES tents(id),
+    location_text TEXT,
+    location_lat REAL,
+    location_lng REAL,
     total_seats INTEGER NOT NULL CHECK (total_seats >= 1 AND total_seats <= 20),
     available_seats INTEGER NOT NULL CHECK (available_seats >= 1),
     date TEXT NOT NULL,
@@ -75,6 +78,11 @@ db.exec(`
     photo_url TEXT,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'expired', 'full')),
     price_per_seat REAL DEFAULT 0.0,
+    group_age_min INTEGER,
+    group_age_max INTEGER,
+    seats_for_women INTEGER DEFAULT 0,
+    seats_for_men INTEGER DEFAULT 0,
+    seats_any_gender INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     CHECK (available_seats <= total_seats)
@@ -127,6 +135,32 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS seeker_searches (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    location_text TEXT,
+    location_lat REAL,
+    location_lng REAL,
+    seats_needed INTEGER NOT NULL DEFAULT 1 CHECK (seats_needed >= 1 AND seats_needed <= 20),
+    date TEXT NOT NULL,
+    time_from TEXT NOT NULL,
+    time_until TEXT NOT NULL,
+    preferred_genders TEXT DEFAULT '["m","f","d"]',
+    preferred_age_min INTEGER DEFAULT 18,
+    preferred_age_max INTEGER DEFAULT 99,
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expired')),
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS daily_blocks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    offer_id TEXT NOT NULL REFERENCES table_offers(id) ON DELETE CASCADE,
+    blocked_date TEXT NOT NULL,
+    UNIQUE(user_id, offer_id, blocked_date)
+  );
+
   CREATE TABLE IF NOT EXISTS notifications (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -166,6 +200,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_table_offers_user_id ON table_offers(user_id);
   CREATE INDEX IF NOT EXISTS idx_table_offers_status ON table_offers(status);
   CREATE INDEX IF NOT EXISTS idx_table_offers_date ON table_offers(date);
+  CREATE INDEX IF NOT EXISTS idx_table_offers_location ON table_offers(location_lat, location_lng);
+  CREATE INDEX IF NOT EXISTS idx_seeker_searches_user_id ON seeker_searches(user_id);
+  CREATE INDEX IF NOT EXISTS idx_seeker_searches_status ON seeker_searches(status);
+  CREATE INDEX IF NOT EXISTS idx_seeker_searches_location ON seeker_searches(location_lat, location_lng);
   CREATE INDEX IF NOT EXISTS idx_swipes_swiper ON swipes(swiper_id);
   CREATE INDEX IF NOT EXISTS idx_matches_offerer ON matches(offerer_id);
   CREATE INDEX IF NOT EXISTS idx_matches_seeker ON matches(seeker_id);
@@ -177,6 +215,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_connect_blocks_blocked ON connect_blocks(blocked_id);
 `);
 
+// Location-Spalten
+try {
+  db.exec(`ALTER TABLE table_offers ADD COLUMN location_text TEXT`);
+} catch (e) { /* Spalte existiert bereits */ }
+try {
+  db.exec(`ALTER TABLE table_offers ADD COLUMN location_lat REAL`);
+} catch (e) { /* Spalte existiert bereits */ }
+try {
+  db.exec(`ALTER TABLE table_offers ADD COLUMN location_lng REAL`);
+} catch (e) { /* Spalte existiert bereits */ }
+
 // Neue Spalten für Geschlechter-Plätze (Abwärtskompatibel)
 try {
   db.exec(`ALTER TABLE table_offers ADD COLUMN seats_for_women INTEGER DEFAULT 0`);
@@ -186,6 +235,11 @@ try {
 } catch (e) { /* Spalte existiert bereits */ }
 try {
   db.exec(`ALTER TABLE table_offers ADD COLUMN seats_any_gender INTEGER DEFAULT 0`);
+} catch (e) { /* Spalte existiert bereits */ }
+
+// Emoji-Spalte im Profil
+try {
+  db.exec(`ALTER TABLE profiles ADD COLUMN emoji TEXT`);
 } catch (e) { /* Spalte existiert bereits */ }
 
 // Admin + Approval Spalten

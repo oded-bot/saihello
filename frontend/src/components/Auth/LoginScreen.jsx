@@ -6,7 +6,7 @@ import useLanguage from '../../hooks/useLanguage';
 import toast from 'react-hot-toast';
 
 export default function LoginScreen() {
-  const [phone, setPhone] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const { login, loading } = useAuthStore();
@@ -15,7 +15,7 @@ export default function LoginScreen() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const result = await login(phone, password);
+    const result = await login(username, password);
     if (result.success) {
       navigate('/home');
     } else {
@@ -39,9 +39,9 @@ export default function LoginScreen() {
         <div>
           <input
             type="text"
-            placeholder={t('phone')}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Benutzername"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             autoComplete="username"
             className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-tinder-pink focus:ring-1 focus:ring-tinder-pink/30 transition"
             required

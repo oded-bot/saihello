@@ -16,14 +16,13 @@ export default function VerifyScreen() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const phone = location.state?.phone || '';
+  const username = location.state?.username || '';
 
-  // Redirect wenn keine Phone-Nummer
   useEffect(() => {
-    if (!phone) {
+    if (!username) {
       navigate('/register', { replace: true });
     }
-  }, [phone, navigate]);
+  }, [username, navigate]);
 
   // Countdown Timer
   useEffect(() => {
@@ -90,7 +89,7 @@ export default function VerifyScreen() {
     if (loading) return;
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/verify-email', { phone, code });
+      const { data } = await api.post('/auth/verify-email', { username, code });
       if (data.success) {
         setVerified(true);
         toast.success(t('emailVerified'));
@@ -110,7 +109,7 @@ export default function VerifyScreen() {
     if (resending) return;
     setResending(true);
     try {
-      const { data } = await api.post('/auth/resend-code', { phone });
+      const { data } = await api.post('/auth/resend-code', { username });
       if (data.success) {
         toast.success(t('newCodeSent'));
         setSecondsLeft(600);

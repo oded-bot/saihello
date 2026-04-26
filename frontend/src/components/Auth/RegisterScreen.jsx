@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 
 export default function RegisterScreen() {
   const [form, setForm] = useState({
-    phone: '', email: '', password: '', displayName: '', age: '', gender: '', bio: '',
+    username: '', email: '', password: '', displayName: '', age: '', gender: '', bio: '',
   });
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMismatch, setPasswordMismatch] = useState(false);
@@ -42,7 +42,7 @@ export default function RegisterScreen() {
     });
     if (result.success) {
       toast.success(t('verificationCodeSent'));
-      navigate('/verify', { state: { phone: form.phone } });
+      navigate('/verify', { state: { username: form.username } });
     } else {
       toast.error(result.error);
     }
@@ -78,9 +78,9 @@ export default function RegisterScreen() {
 
         <input
           type="text"
-          placeholder={t('phone')}
-          value={form.phone}
-          onChange={(e) => update('phone', e.target.value)}
+          placeholder="Benutzername"
+          value={form.username}
+          onChange={(e) => update('username', e.target.value)}
           className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-tinder-pink focus:ring-1 focus:ring-tinder-pink/30 transition"
           required
         />

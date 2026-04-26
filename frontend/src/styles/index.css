@@ -8,7 +8,6 @@ html, body, #root {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
-  height: 100%;
   margin: 0;
   padding: 0;
 }

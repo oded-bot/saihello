@@ -3,7 +3,7 @@ const db = require('../../config/database');
 
 function updateProfile(req, res) {
   try {
-    const { displayName, bio, age, gender } = req.body;
+    const { displayName, bio, age, gender, emoji } = req.body;
     const userId = req.user.id;
 
     const updates = [];
@@ -13,6 +13,7 @@ function updateProfile(req, res) {
     if (bio !== undefined) { updates.push('bio = ?'); values.push(bio); }
     if (age !== undefined) { updates.push('age = ?'); values.push(age); }
     if (gender !== undefined) { updates.push('gender = ?'); values.push(gender); }
+    if (emoji !== undefined) { updates.push('emoji = ?'); values.push(emoji || null); }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'Keine Felder zum Aktualisieren' });

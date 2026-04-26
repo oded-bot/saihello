@@ -8,24 +8,24 @@ const router = express.Router();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: process.env.NODE_ENV === 'development' ? 1000 : 5,
   message: { error: 'Zu viele Login-Versuche. Bitte warte 15 Minuten.' },
 });
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 3,
+  max: process.env.NODE_ENV === 'development' ? 1000 : 3,
   message: { error: 'Zu viele Registrierungen. Bitte warte.' },
 });
 
 const resendLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: process.env.NODE_ENV === 'development' ? 1000 : 5,
   message: { error: 'Zu viele Versuche. Bitte warte.' },
 });
 
 router.post('/register', registerLimiter, [
-  body('phone').trim().isLength({ min: 4, max: 20 }).withMessage('Gültige Telefonnummer erforderlich'),
+  body('username').trim().isLength({ min: 3, max: 30 }).withMessage('Benutzername muss 3-30 Zeichen haben'),
   body('email').isEmail().withMessage('Gültige E-Mail-Adresse erforderlich'),
   body('password').isLength({ min: 6 }).withMessage('Passwort muss mindestens 6 Zeichen haben'),
   body('displayName').trim().isLength({ min: 2, max: 100 }).withMessage('Name muss 2-100 Zeichen haben'),
@@ -35,19 +35,19 @@ router.post('/register', registerLimiter, [
 ], authController.register);
 
 router.post('/login', loginLimiter, [
-  body('phone').notEmpty().withMessage('Telefonnummer erforderlich'),
+  body('username').notEmpty().withMessage('Benutzername erforderlich'),
   body('password').notEmpty().withMessage('Passwort erforderlich'),
   validate,
 ], authController.login);
 
 router.post('/verify-email', [
-  body('phone').notEmpty().withMessage('Telefonnummer erforderlich'),
+  body('username').notEmpty().withMessage('Benutzername erforderlich'),
   body('code').isLength({ min: 6, max: 6 }).withMessage('6-stelliger Code erforderlich'),
   validate,
 ], authController.verifyEmail);
 
 router.post('/resend-code', resendLimiter, [
-  body('phone').notEmpty().withMessage('Telefonnummer erforderlich'),
+  body('username').notEmpty().withMessage('Benutzername erforderlich'),
   validate,
 ], authController.resendCode);
 

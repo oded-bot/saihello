@@ -1,5 +1,6 @@
 const { v4: uuid } = require('uuid');
 const db = require('../../config/database');
+const { geocode } = require('../../lib/geocode');
 
 function getTents(req, res) {
   try {
@@ -13,25 +14,23 @@ function getTents(req, res) {
   }
 }
 
-function createOffer(req, res) {
+async function createOffer(req, res) {
   try {
     const {
-      tentId, totalSeats, availableSeats, date, timeFrom, timeUntil,
+      totalSeats, availableSeats, date, timeFrom, timeUntil,
       preferredGenders, preferredAgeMin, preferredAgeMax,
       description, groupDescription, photoUrl, pricePerSeat,
       groupAgeMin, groupAgeMax,
       seatsForWomen, seatsForMen, seatsAnyGender,
+      locationText, locationLat, locationLng,
     } = req.body;
 
-    // Geschlechter-Plätze
     const sfw = parseInt(seatsForWomen) || 0;
     const sfm = parseInt(seatsForMen) || 0;
     const sag = parseInt(seatsAnyGender) || 0;
 
-    // preferred_genders automatisch aus Plätzen berechnen
     let computedGenders;
     if (sfw === 0 && sfm === 0 && sag === 0) {
-      // Keine Einschränkung (Toggle "egal" oder alte Angebote)
       computedGenders = ['m', 'f', 'd'];
     } else {
       const genders = [];
@@ -41,26 +40,36 @@ function createOffer(req, res) {
       computedGenders = genders.length > 0 ? genders : ['m', 'f', 'd'];
     }
 
+    let finalLat = locationLat != null ? parseFloat(locationLat) : null;
+    let finalLng = locationLng != null ? parseFloat(locationLng) : null;
+
+    if (locationText && finalLat == null) {
+      const coords = await geocode(locationText);
+      if (coords) { finalLat = coords.lat; finalLng = coords.lng; }
+    }
+
     const offerId = uuid();
     db.prepare(`
       INSERT INTO table_offers
-        (id, user_id, tent_id, total_seats, available_seats, date, time_from, time_until,
+        (id, user_id, total_seats, available_seats, date, time_from, time_until,
          preferred_genders, preferred_age_min, preferred_age_max,
          description, group_description, photo_url, price_per_seat,
          group_age_min, group_age_max,
-         seats_for_women, seats_for_men, seats_any_gender)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         seats_for_women, seats_for_men, seats_any_gender,
+         location_text, location_lat, location_lng)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      offerId, req.user.id, tentId, totalSeats, availableSeats, date, timeFrom, timeUntil,
+      offerId, req.user.id, totalSeats, availableSeats, date, timeFrom, timeUntil,
       JSON.stringify(computedGenders),
       preferredAgeMin || 18, preferredAgeMax || 99,
       description || null, groupDescription || null, photoUrl || null,
       pricePerSeat || 0,
       groupAgeMin || null, groupAgeMax || null,
-      sfw, sfm, sag
+      sfw, sfm, sag,
+      locationText || null, finalLat, finalLng
     );
 
-    res.status(201).json({ id: offerId, message: 'Tisch-Angebot erstellt' });
+    res.status(201).json({ id: offerId, message: 'Tisch-Angebot erstellt', lat: finalLat, lng: finalLng });
   } catch (err) {
     console.error('createOffer Fehler:', err);
     res.status(500).json({ error: 'Angebot erstellen fehlgeschlagen' });
@@ -70,10 +79,9 @@ function createOffer(req, res) {
 function getMyOffers(req, res) {
   try {
     const offers = db.prepare(`
-      SELECT o.*, t.name as tent_name, t.slug as tent_slug,
+      SELECT o.*,
              (SELECT COUNT(*) FROM matches m WHERE m.offer_id = o.id AND m.status = 'active') as match_count
       FROM table_offers o
-      JOIN tents t ON t.id = o.tent_id
       WHERE o.user_id = ?
       ORDER BY o.created_at DESC
     `).all(req.user.id);
@@ -210,7 +218,7 @@ function deleteOffer(req, res) {
 function discoverOffers(req, res) {
   try {
     const userId = req.user.id;
-    const { tentId, date, minSeats, ageMin, ageMax, seats, women, men, diverse, timeFrom, timeUntil } = req.query;
+    const { date, minSeats, ageMin, ageMax, seats, women, men, diverse, timeFrom, timeUntil } = req.query;
 
     const profile = db.prepare('SELECT age, gender FROM profiles WHERE user_id = ?').get(userId);
     if (!profile) {
@@ -223,11 +231,10 @@ function discoverOffers(req, res) {
              o.description, o.group_description, o.photo_url, o.price_per_seat,
              o.group_age_min, o.group_age_max,
              o.seats_for_women, o.seats_for_men, o.seats_any_gender,
-             t.name as tent_name, t.slug as tent_slug, t.image_url as tent_image,
+             o.location_text, o.location_lat, o.location_lng,
              p.display_name, p.age as offerer_age, p.gender as offerer_gender,
              p.photo_1 as offerer_photo, p.is_verified, p.rating
       FROM table_offers o
-      JOIN tents t ON t.id = o.tent_id
       JOIN profiles p ON p.user_id = o.user_id
       WHERE o.status = 'active'
         AND o.user_id != ?
@@ -241,10 +248,6 @@ function discoverOffers(req, res) {
     `;
     const params = [userId, userId, userId];
 
-    if (tentId) {
-      query += ' AND o.tent_id = ?';
-      params.push(tentId);
-    }
     if (date) {
       query += ' AND o.date = ?';
       params.push(date);

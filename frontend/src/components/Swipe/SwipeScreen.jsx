@@ -88,10 +88,12 @@ function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
             {offer.is_verified && <Star size={16} className="text-tinder-yellow fill-tinder-yellow mb-1" />}
           </div>
 
-          <div className="flex items-center gap-1.5 text-white/70 text-sm mb-1">
-            <Flame size={14} className="text-tinder-orange" />
-            <span className="font-medium">{offer.tent_name}</span>
-          </div>
+          {offer.location_text && (
+            <div className="flex items-center gap-1.5 text-white/70 text-sm mb-1">
+              <MapPin size={14} className="text-tinder-orange" />
+              <span className="font-medium">{offer.location_text}</span>
+            </div>
+          )}
 
           <div className="flex items-center gap-3 text-white/60 text-xs">
             <div className="flex items-center gap-1">
@@ -191,13 +193,10 @@ export default function SwipeScreen() {
     totalPersons: '',
     women: '',
     men: '',
-
-    tentId: '',
     date: '',
     timeFrom: '',
     timeUntil: '',
   });
-  const [tents, setTents] = useState([]);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
   const [searchApplied, setSearchApplied] = useState(false);
   const [roleLocked, setRoleLocked] = useState(false);
@@ -207,17 +206,9 @@ export default function SwipeScreen() {
 
   useEffect(() => {
     loadOffers();
-    loadTents();
     pollRef.current = setInterval(refreshOffers, 10000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
-
-  async function loadTents() {
-    try {
-      const { data } = await api.get('/tables/tents');
-      setTents(data);
-    } catch (err) {}
-  }
 
   function buildQuery() {
     const params = new URLSearchParams();
@@ -232,7 +223,6 @@ export default function SwipeScreen() {
     const menP = parseInt(searchFilter.men) || 0;
     const diverseP = Math.max(0, totalP - womenP - menP);
     if (diverseP > 0) params.set('diverse', diverseP.toString());
-    if (searchFilter.tentId) params.set('tentId', searchFilter.tentId);
     if (searchFilter.date) params.set('date', searchFilter.date);
     if (searchFilter.timeFrom) params.set('timeFrom', searchFilter.timeFrom);
     if (searchFilter.timeUntil) params.set('timeUntil', searchFilter.timeUntil);
@@ -484,24 +474,6 @@ export default function SwipeScreen() {
               )}
 
 
-              {/* Zelt */}
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">{t('tent')} ({t('optional')})</label>
-                <div className="relative">
-                  <select
-                    value={searchFilter.tentId}
-                    onChange={(e) => setSearchFilter(f => ({...f, tentId: e.target.value}))}
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-dark-elevated border border-gray-200 dark:border-dark-separator rounded-xl text-gray-900 dark:text-white focus:outline-none focus:border-tinder-pink text-sm appearance-none"
-                  >
-                    <option value="">{t('allTents')}</option>
-                    {tents.map((tent) => (
-                      <option key={tent.id} value={tent.id}>{tent.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-
               {/* Datum */}
               <div>
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">{t('date')} ({t('optional')})</label>
@@ -558,7 +530,7 @@ export default function SwipeScreen() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => {
-                  setSearchFilter({ totalPersons: '', women: '', men: '', tentId: '', date: '', timeFrom: '', timeUntil: '' });
+                  setSearchFilter({ totalPersons: '', women: '', men: '', date: '', timeFrom: '', timeUntil: '' });
                   setSearchApplied(false);
                   setShowSearchOverlay(false);
                   setTimeout(loadOffers, 0);
@@ -569,7 +541,7 @@ export default function SwipeScreen() {
               </button>
               <button
                 onClick={() => {
-                  setSearchApplied(!!(searchFilter.totalPersons || searchFilter.tentId || searchFilter.date || searchFilter.timeFrom || searchFilter.timeUntil));
+                  setSearchApplied(!!(searchFilter.totalPersons || searchFilter.date || searchFilter.timeFrom || searchFilter.timeUntil));
                   setShowSearchOverlay(false);
                   setTimeout(loadOffers, 0);
                 }}

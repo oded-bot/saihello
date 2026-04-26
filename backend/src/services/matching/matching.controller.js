@@ -428,4 +428,44 @@ function getReceivedLikes(req, res) {
   }
 }
 
-module.exports = { swipe, getSuperLikeStatus, getMatches, getMatchDetail, confirmMatch, acceptInvite, rejectMatch, cancelMatch, rateMatch, getReceivedLikes };
+// Anbieter lädt Suchenden direkt ein (vom Kartenpin aus)
+function inviteSeeker(req, res) {
+  try {
+    const { seekerUserId, direction } = req.body;
+    const offererId = req.user.id;
+
+    if (seekerUserId === offererId) {
+      return res.status(400).json({ error: 'Eigenes Profil' });
+    }
+
+    const offer = db.prepare(
+      "SELECT id, available_seats FROM table_offers WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
+    ).get(offererId);
+
+    if (!offer) {
+      return res.status(404).json({ error: 'Kein aktives Angebot gefunden' });
+    }
+
+    const matchId = uuid();
+    const result = db.prepare(`
+      INSERT OR IGNORE INTO matches (id, offer_id, offerer_id, seeker_id, seats_granted, status)
+      VALUES (?, ?, ?, ?, 1, 'active')
+    `).run(matchId, offer.id, offererId, seekerUserId);
+
+    let match = null;
+    if (result.changes > 0) {
+      match = { id: matchId, isNew: true };
+      db.prepare(`
+        INSERT INTO messages (id, match_id, sender_id, content, message_type)
+        VALUES (?, ?, ?, 'Match! Ihr könnt jetzt chatten.', 'system')
+      `).run(uuid(), matchId, offererId);
+    }
+
+    res.json({ direction, match });
+  } catch (err) {
+    console.error('inviteSeeker Fehler:', err);
+    res.status(500).json({ error: 'Einladung fehlgeschlagen' });
+  }
+}
+
+module.exports = { swipe, inviteSeeker, getSuperLikeStatus, getMatches, getMatchDetail, confirmMatch, acceptInvite, rejectMatch, cancelMatch, rateMatch, getReceivedLikes };

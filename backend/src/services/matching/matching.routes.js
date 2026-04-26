@@ -7,6 +7,13 @@ const matchingController = require('./matching.controller');
 const router = express.Router();
 router.use(authMiddleware);
 
+// Anbieter lädt Suchenden direkt ein (vom Kartenpin)
+router.post('/invite-seeker', [
+  body('seekerUserId').isUUID().withMessage('Suchender-ID erforderlich'),
+  body('direction').isIn(['like', 'superlike']).withMessage('like oder superlike'),
+  validate,
+], matchingController.inviteSeeker);
+
 // Swipe auf ein Angebot
 router.post('/swipe', [
   body('offerId').isUUID().withMessage('Angebots-ID erforderlich'),

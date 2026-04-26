@@ -10,16 +10,20 @@ function generateCode() {
 
 async function register(req, res) {
   try {
-    const { phone, password, email, displayName, age, gender, bio } = req.body;
+    const { username, password, email, displayName, age, gender, bio } = req.body;
 
-    const existing = db.prepare('SELECT id FROM users WHERE phone = ?').get(phone);
-    if (existing) {
-      return res.status(409).json({ error: 'Diese Telefonnummer ist bereits registriert' });
+    const existingUsername = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+    if (existingUsername) {
+      return res.status(409).json({ error: 'Dieser Benutzername ist bereits vergeben' });
     }
 
-    const existingEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    const existingEmail = db.prepare('SELECT id, email_verified FROM users WHERE email = ?').get(email);
     if (existingEmail) {
-      return res.status(409).json({ error: 'Diese E-Mail-Adresse ist bereits registriert' });
+      if (!existingEmail.email_verified) {
+        db.prepare('DELETE FROM users WHERE email = ? AND email_verified = 0').run(email);
+      } else {
+        return res.status(409).json({ error: 'Diese E-Mail-Adresse ist bereits registriert' });
+      }
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -30,24 +34,22 @@ async function register(req, res) {
     const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     const insertUser = db.prepare(
-      'INSERT INTO users (id, phone, email, password_hash, is_approved, verification_code, verification_expires, email_verified) VALUES (?, ?, ?, ?, 0, ?, ?, 0)'
+      'INSERT INTO users (id, username, email, password_hash, is_approved, verification_code, verification_expires, email_verified) VALUES (?, ?, ?, ?, 0, ?, ?, 0)'
     );
     const insertProfile = db.prepare(
       'INSERT INTO profiles (id, user_id, display_name, age, gender, bio) VALUES (?, ?, ?, ?, ?, ?)'
     );
 
     const transaction = db.transaction(() => {
-      insertUser.run(userId, phone, email, passwordHash, code, expires);
+      insertUser.run(userId, username, email, passwordHash, code, expires);
       insertProfile.run(profileId, userId, displayName, age, gender, bio || null);
     });
     transaction();
 
-    // E-Mail mit Code senden
     try {
       await sendVerificationEmail(email, code);
     } catch (emailErr) {
       console.error('E-Mail senden fehlgeschlagen:', emailErr);
-      // User trotzdem erstellt — kann Code erneut anfordern
     }
 
     res.status(201).json({
@@ -63,34 +65,31 @@ async function register(req, res) {
 
 async function login(req, res) {
   try {
-    const { phone, password } = req.body;
+    const { username, password } = req.body;
 
     const user = db.prepare(`
-      SELECT u.id, u.phone, u.password_hash, u.is_banned, u.ban_reason, u.is_admin, u.is_approved, u.email_verified,
+      SELECT u.id, u.username, u.password_hash, u.is_banned, u.ban_reason, u.is_admin, u.is_approved, u.email_verified,
              p.display_name, p.age, p.gender, p.photo_1, p.is_verified, p.rating
       FROM users u
       LEFT JOIN profiles p ON p.user_id = u.id
-      WHERE u.phone = ? AND u.is_active = 1
-    `).get(phone);
+      WHERE u.username = ? AND u.is_active = 1
+    `).get(username);
 
     if (!user) {
-      return res.status(401).json({ error: 'Telefonnummer oder Passwort falsch' });
+      return res.status(401).json({ error: 'Benutzername oder Passwort falsch' });
     }
 
     if (user.is_banned) {
       return res.status(403).json({ error: 'Account gesperrt', reason: user.ban_reason });
     }
 
-    // Check approval after password verification (below) — moved the password check first
-    // so we don't leak info about whether a phone number is registered
-
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      return res.status(401).json({ error: 'Telefonnummer oder Passwort falsch' });
+      return res.status(401).json({ error: 'Benutzername oder Passwort falsch' });
     }
 
     if (!user.email_verified) {
-      return res.status(403).json({ error: 'Bitte bestätige zuerst deine E-Mail', code: 'EMAIL_NOT_VERIFIED', phone: user.phone });
+      return res.status(403).json({ error: 'Bitte bestätige zuerst deine E-Mail', code: 'EMAIL_NOT_VERIFIED', username: user.username });
     }
 
     if (!user.is_approved) {
@@ -104,7 +103,7 @@ async function login(req, res) {
       token,
       user: {
         id: user.id,
-        phone: user.phone,
+        username: user.username,
         displayName: user.display_name,
         age: user.age,
         gender: user.gender,
@@ -123,10 +122,10 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const u = db.prepare(`
-      SELECT u.id, u.phone, u.created_at, u.is_admin, u.is_approved,
+      SELECT u.id, u.username, u.created_at, u.is_admin, u.is_approved,
              p.display_name, p.bio, p.age, p.gender,
              p.photo_1, p.photo_2, p.photo_3, p.photo_4, p.photo_5, p.photo_6,
-             p.is_verified, p.rating, p.total_ratings
+             p.is_verified, p.rating, p.total_ratings, p.emoji
       FROM users u
       LEFT JOIN profiles p ON p.user_id = u.id
       WHERE u.id = ?
@@ -138,7 +137,7 @@ async function getMe(req, res) {
 
     res.json({
       id: u.id,
-      phone: u.phone,
+      username: u.username,
       displayName: u.display_name,
       bio: u.bio,
       age: u.age,
@@ -149,6 +148,7 @@ async function getMe(req, res) {
       isApproved: !!u.is_approved,
       rating: u.rating || 0,
       totalRatings: u.total_ratings,
+      emoji: u.emoji || null,
       createdAt: u.created_at,
     });
   } catch (err) {
@@ -159,11 +159,11 @@ async function getMe(req, res) {
 
 async function verifyEmail(req, res) {
   try {
-    const { phone, code } = req.body;
+    const { username, code } = req.body;
 
     const user = db.prepare(
-      'SELECT id, verification_code, verification_expires, email_verified FROM users WHERE phone = ?'
-    ).get(phone);
+      'SELECT id, verification_code, verification_expires, email_verified FROM users WHERE username = ?'
+    ).get(username);
 
     if (!user) {
       return res.status(404).json({ error: 'User nicht gefunden' });
@@ -201,11 +201,11 @@ async function verifyEmail(req, res) {
 
 async function resendCode(req, res) {
   try {
-    const { phone } = req.body;
+    const { username } = req.body;
 
     const user = db.prepare(
-      'SELECT id, email, email_verified, resend_count, resend_window_start FROM users WHERE phone = ?'
-    ).get(phone);
+      'SELECT id, email, email_verified, resend_count, resend_window_start FROM users WHERE username = ?'
+    ).get(username);
 
     if (!user) {
       return res.status(404).json({ error: 'User nicht gefunden' });
@@ -219,19 +219,16 @@ async function resendCode(req, res) {
       return res.status(400).json({ error: 'Keine E-Mail hinterlegt' });
     }
 
-    // Rate-Limit: max 3 pro Stunde
     const now = new Date();
     const windowStart = user.resend_window_start ? new Date(user.resend_window_start) : null;
     let count = user.resend_count || 0;
 
     if (windowStart && (now - windowStart) < 60 * 60 * 1000) {
-      // Innerhalb der letzten Stunde
       if (count >= 3) {
         return res.status(429).json({ error: 'Zu viele Versuche. Bitte warte eine Stunde.' });
       }
       count++;
     } else {
-      // Neues Fenster
       count = 1;
     }
 
@@ -250,10 +247,7 @@ async function resendCode(req, res) {
       return res.status(500).json({ error: 'E-Mail senden fehlgeschlagen' });
     }
 
-    res.json({
-      success: true,
-      message: 'Neuer Code gesendet',
-    });
+    res.json({ success: true, message: 'Neuer Code gesendet' });
   } catch (err) {
     console.error('ResendCode Fehler:', err);
     res.status(500).json({ error: 'Code erneut senden fehlgeschlagen' });

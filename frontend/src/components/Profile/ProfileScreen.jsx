@@ -18,6 +18,15 @@ export default function ProfileScreen() {
   const [form, setForm] = useState({ displayName: '', bio: '', age: '' });
   const [notifSettings, setNotifSettings] = useState({ matchesEnabled: true, messagesEnabled: true, invitesEnabled: true });
   const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [currentEmoji, setCurrentEmoji] = useState(null);
+
+  const EMOJIS = [
+    '😀','😎','🤩','😍','🥳','🤠','🎭','👑',
+    '🦁','🐯','🦊','🐺','🦄','🐻','🐼','🐸',
+    '🍺','🍻','🥂','🎉','🎊','🎸','🎵','🎶',
+    '🌟','⭐','🔥','💫','❤️','🏆','💎','🚀',
+  ];
 
   useEffect(() => {
     loadProfile();
@@ -29,6 +38,7 @@ export default function ProfileScreen() {
       const { data } = await api.get('/auth/me');
       setProfile(data);
       setForm({ displayName: data.displayName, bio: data.bio || '', age: data.age?.toString() || '' });
+      setCurrentEmoji(data.emoji || null);
     } catch (err) {
       // stille
     }
@@ -81,6 +91,17 @@ export default function ProfileScreen() {
       loadProfile();
     } catch (err) {
       toast.error(t('saveFailed'));
+    }
+  }
+
+  async function saveEmoji(emoji) {
+    try {
+      await api.patch('/users/profile', { emoji: emoji || null });
+      setCurrentEmoji(emoji || null);
+      setShowEmojiPicker(false);
+      toast.success(emoji ? 'Pin-Symbol gespeichert' : 'Pin-Symbol zurückgesetzt');
+    } catch (err) {
+      toast.error('Speichern fehlgeschlagen');
     }
   }
 
@@ -165,7 +186,92 @@ export default function ProfileScreen() {
         )}
       </div>
 
-      {/* Bewertungen — später als Feature einbauen */}
+      {/* Pin-Symbol */}
+      <div className="mb-6 bg-gray-50 dark:bg-dark-card rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">Pin-Symbol auf der Karte</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {currentEmoji ? 'Emoji wird neben deinem Pin angezeigt' : 'Dein Profilfoto wird neben dem Pin angezeigt'}
+            </p>
+          </div>
+          {/* Vorschau */}
+          <div className="relative flex-shrink-0">
+            <div className="w-8 h-12 bg-contain bg-no-repeat bg-center"
+              style={{ backgroundImage: `url('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png')` }}
+            />
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2">
+              {currentEmoji ? (
+                <span style={{ fontSize: 20, lineHeight: 1 }}>{currentEmoji}</span>
+              ) : photo ? (
+                <img src={photo} className="w-7 h-7 rounded-full border-2 border-white object-cover shadow" />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-tinder-pink flex items-center justify-center text-white text-xs font-bold border-2 border-white">
+                  {profile?.displayName?.charAt(0)}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          className="w-full py-2 border border-tinder-pink text-tinder-pink rounded-xl text-sm font-medium"
+        >
+          {showEmojiPicker ? 'Schließen' : currentEmoji ? 'Emoji ändern' : 'Emoji wählen'}
+        </button>
+
+        {showEmojiPicker && (
+          <div className="mt-3 space-y-3">
+            {/* Freie Eingabe */}
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Eigenes Emoji eingeben oder einfügen:</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="z.B. 🦋"
+                  maxLength={8}
+                  defaultValue={currentEmoji || ''}
+                  id="custom-emoji-input"
+                  className="flex-1 border border-gray-200 dark:border-dark-separator rounded-xl px-4 py-2 text-2xl text-center bg-gray-50 dark:bg-dark-elevated focus:outline-none focus:border-tinder-pink"
+                />
+                <button
+                  onClick={() => {
+                    const val = document.getElementById('custom-emoji-input').value.trim();
+                    if (val) saveEmoji(val);
+                  }}
+                  className="px-4 py-2 tinder-gradient text-white rounded-xl text-sm font-medium"
+                >
+                  Übernehmen
+                </button>
+              </div>
+            </div>
+
+            {/* Schnellauswahl */}
+            <p className="text-xs text-gray-500 dark:text-gray-400">Oder schnell wählen:</p>
+            <div className="grid grid-cols-8 gap-1">
+              {EMOJIS.map(e => (
+                <button
+                  key={e}
+                  onClick={() => saveEmoji(e)}
+                  className={`text-2xl p-1 rounded-lg transition ${currentEmoji === e ? 'bg-tinder-pink/20 ring-2 ring-tinder-pink' : 'hover:bg-gray-100 dark:hover:bg-dark-elevated'}`}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+
+            {currentEmoji && (
+              <button
+                onClick={() => saveEmoji(null)}
+                className="w-full py-2 bg-gray-100 dark:bg-dark-elevated text-gray-500 dark:text-gray-400 rounded-xl text-sm font-medium"
+              >
+                Emoji entfernen (Foto als Pin)
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Menu */}
       <div className="space-y-1">
