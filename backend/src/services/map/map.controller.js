@@ -1,4 +1,66 @@
+const https = require('https');
 const db = require('../../config/database');
+const { geocode } = require('../../lib/geocode');
+
+function httpPost(hostname, path, params) {
+  return new Promise((resolve, reject) => {
+    const qs = new URLSearchParams(params).toString();
+    const options = {
+      hostname,
+      path: `${path}?${qs}`,
+      method: 'POST',
+      headers: { 'User-Agent': 'SaiHello/1.0', 'Content-Length': 0 },
+    };
+    const req = https.request(options, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
+    });
+    req.on('error', reject);
+    req.setTimeout(12000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.end();
+  });
+}
+
+function httpGet(hostname, path) {
+  return new Promise((resolve, reject) => {
+    const options = { hostname, path, headers: { 'User-Agent': 'SaiHello/1.0' } };
+    const req = https.get(options, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
+    });
+    req.on('error', reject);
+    req.setTimeout(10000, () => { req.destroy(); reject(new Error('timeout')); });
+  });
+}
+
+// Find nearby POIs via Overpass API (free, no credits)
+async function findNearbyVenues(lat, lng, radiusM = 500, limit = 6) {
+  const query = `[out:json][timeout:10];(node["amenity"~"restaurant|bar|cafe|pub|nightclub|biergarten|food_court"](around:${radiusM},${lat},${lng});node["tourism"~"attraction"](around:${radiusM},${lat},${lng}););out ${limit};`;
+  const encoded = encodeURIComponent(query);
+  const data = await httpGet('overpass-api.de', `/api/interpreter?data=${encoded}`);
+  if (!data || !data.elements) return [];
+  return data.elements
+    .filter(e => e.tags?.name)
+    .map(e => ({
+      name: e.tags.name,
+      address: [e.tags['addr:street'], e.tags['addr:city'] || 'Germany'].filter(Boolean).join(', ') || 'Germany',
+      lat: e.lat,
+      lng: e.lon,
+    }))
+    .slice(0, limit);
+}
+
+// Get BestTime forecast for a venue (costs 2 credits per new venue)
+async function getBestTimeForecast(venueName, venueAddress) {
+  const apiKey = process.env.BESTTIME_API_KEY;
+  return httpPost('besttime.app', '/api/v1/forecasts', {
+    api_key_private: apiKey,
+    venue_name: venueName,
+    venue_address: venueAddress,
+  });
+}
 
 function getOfferPins(req, res) {
   try {
@@ -383,4 +445,95 @@ function getSeekerFeed(req, res) {
   }
 }
 
-module.exports = { getOfferPins, getSeekerPins, getOfferFeed, getSeekerFeed };
+async function getHeatmap(req, res) {
+  try {
+    const { lat, lng, query } = req.query;
+    const radius = 500;
+
+    let centerLat, centerLng, locationLabel;
+
+    if (lat && lng) {
+      centerLat = parseFloat(lat);
+      centerLng = parseFloat(lng);
+      locationLabel = 'Aktueller Standort';
+    } else if (query) {
+      const coords = await geocode(query);
+      if (!coords) return res.status(400).json({ error: 'Ort nicht gefunden' });
+      centerLat = coords.lat;
+      centerLng = coords.lng;
+      locationLabel = query;
+    } else {
+      return res.status(400).json({ error: 'Ort oder Koordinaten erforderlich' });
+    }
+
+    // 1. Find nearby venues via Overpass (free)
+    const venues = await findNearbyVenues(centerLat, centerLng, radius, 5);
+
+    // Always include the searched location itself as the first venue
+    const searchedVenue = query
+      ? { name: query, address: query, lat: centerLat, lng: centerLng }
+      : { name: locationLabel, address: locationLabel, lat: centerLat, lng: centerLng };
+    const allVenues = [searchedVenue, ...venues];
+
+    // 2. Get BestTime forecast for each venue in parallel (2 credits each)
+    const now = new Date();
+    const dayInt = now.getDay();
+    const hourInt = now.getHours();
+
+    const forecasts = await Promise.allSettled(
+      allVenues.map(v => getBestTimeForecast(v.name, `${v.name}, ${v.address}`))
+    );
+
+    const heatPoints = [];
+    forecasts.forEach((result, i) => {
+      if (result.status !== 'fulfilled' || !result.value || result.value.status !== 'OK') return;
+      const bt = result.value;
+      const vLat = bt.venue_info?.venue_lat ?? allVenues[i].lat;
+      const vLng = bt.venue_info?.venue_lon ?? allVenues[i].lng;
+
+      let intensity = 0.3;
+      try {
+        const dayData = bt.analysis?.find(d => d.day_info?.day_int === dayInt);
+        const hourData = dayData?.hour_analysis?.find(h => h.hour_int === hourInt);
+        if (hourData?.intensity_nr != null) intensity = hourData.intensity_nr / 100;
+        else if (dayData?.day_info?.day_mean != null) intensity = dayData.day_info.day_mean / 100;
+      } catch {}
+
+      heatPoints.push([vLat, vLng, Math.max(0.1, intensity)]);
+    });
+
+    // 3. Also get our app's pins in the area (non-clickable overlay)
+    const today = now.toISOString().slice(0, 10);
+    const latDelta = radius / 111000;
+    const lngDelta = radius / (111000 * Math.cos(centerLat * Math.PI / 180));
+
+    const offerPins = db.prepare(`
+      SELECT o.id, o.location_lat as lat, o.location_lng as lng,
+             o.location_text, o.time_from, o.time_until, p.display_name, p.emoji
+      FROM table_offers o JOIN profiles p ON p.user_id = o.user_id
+      WHERE o.status = 'active' AND o.date >= ?
+        AND o.location_lat BETWEEN ? AND ? AND o.location_lng BETWEEN ? AND ?
+    `).all(today, centerLat - latDelta, centerLat + latDelta, centerLng - lngDelta, centerLng + lngDelta);
+
+    const seekerPins = db.prepare(`
+      SELECT s.id, s.location_lat as lat, s.location_lng as lng,
+             s.location_text, s.time_from, s.time_until, p.display_name, p.emoji
+      FROM seeker_searches s JOIN profiles p ON p.user_id = s.user_id
+      WHERE s.status = 'active' AND s.date >= ?
+        AND s.location_lat BETWEEN ? AND ? AND s.location_lng BETWEEN ? AND ?
+    `).all(today, centerLat - latDelta, centerLat + latDelta, centerLng - lngDelta, centerLng + lngDelta);
+
+    res.json({
+      centerLat, centerLng, locationLabel,
+      heatPoints,
+      venueCount: allVenues.length,
+      offerPins: offerPins.map(p => ({ ...p, type: 'offer' })),
+      seekerPins: seekerPins.map(p => ({ ...p, type: 'seeker' })),
+    });
+  } catch (err) {
+    console.error('getHeatmap Fehler:', err);
+    res.status(500).json({ error: 'Heatmap laden fehlgeschlagen' });
+  }
+}
+
+module.exports = { getOfferPins, getSeekerPins, getOfferFeed, getSeekerFeed, getHeatmap };

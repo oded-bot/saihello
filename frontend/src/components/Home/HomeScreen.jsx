@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Search, PlusCircle, Star, TrendingUp, Sparkles, X, HelpCircle } from 'lucide-react';
+import { Flame, Search, PlusCircle, Star, TrendingUp, Sparkles, X, HelpCircle, Navigation, MapPin } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import useLanguage from '../../hooks/useLanguage';
 import api from '../../utils/api';
@@ -60,6 +60,76 @@ function HowItWorksModal({ onClose, onDontShow }) {
   );
 }
 
+function HeatLocationModal({ onClose, onConfirm }) {
+  const [query, setQuery] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState('');
+
+  function handleGps() {
+    if (!navigator.geolocation) { setGpsError('GPS nicht verfügbar'); return; }
+    setGpsLoading(true);
+    setGpsError('');
+    navigator.geolocation.getCurrentPosition(
+      pos => { setGpsLoading(false); onConfirm({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
+      () => { setGpsLoading(false); setGpsError('Standort nicht verfügbar. Bitte Zugriff erlauben.'); },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white dark:bg-dark-card rounded-t-3xl w-full max-w-md p-6 pb-10 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">🔥 Where's the heat?</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-dark-elevated flex items-center justify-center">
+            <X size={16} className="text-gray-500" />
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Wo soll die Heatmap angezeigt werden?</p>
+
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="z.B. Marienplatz München, Times Square…"
+              className="flex-1 border border-gray-200 dark:border-dark-separator rounded-xl px-4 py-3 text-sm bg-gray-50 dark:bg-dark-elevated text-gray-900 dark:text-white focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/30 placeholder-gray-400"
+              onKeyDown={e => e.key === 'Enter' && query.trim() && onConfirm({ query: query.trim() })}
+            />
+            <button
+              onClick={() => query.trim() && onConfirm({ query: query.trim() })}
+              disabled={!query.trim()}
+              className="bg-orange-500 text-white px-4 rounded-xl font-semibold text-sm disabled:opacity-40"
+            >
+              Los
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-gray-200 dark:bg-dark-separator" />
+            <span className="text-xs text-gray-400">oder</span>
+            <div className="flex-1 h-px bg-gray-200 dark:bg-dark-separator" />
+          </div>
+
+          <button
+            onClick={handleGps}
+            disabled={gpsLoading}
+            className="w-full flex items-center justify-center gap-2 border-2 border-orange-400 text-orange-500 py-3 rounded-xl text-sm font-semibold active:scale-95 transition disabled:opacity-60"
+          >
+            {gpsLoading
+              ? <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+              : <Navigation size={16} />}
+            Aktueller Standort
+          </button>
+
+          {gpsError && <p className="text-xs text-red-500 text-center">{gpsError}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
   const { t } = useLanguage();
@@ -67,6 +137,7 @@ export default function HomeScreen() {
   const [stats, setStats] = useState({ offers: 0, matches: 0 });
   const [pendingInvites, setPendingInvites] = useState(0);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [showHeatModal, setShowHeatModal] = useState(false);
   const hideHowItWorks = localStorage.getItem('hideHowItWorks') === 'true';
 
   useEffect(() => {
@@ -175,6 +246,20 @@ export default function HomeScreen() {
           </button>
         )}
 
+        <button
+          onClick={() => setShowHeatModal(true)}
+          className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform shadow-lg"
+          style={{ backgroundColor: '#f97316' }}
+        >
+          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center shrink-0 text-3xl">
+            🔥
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white">Where's the heat?</h3>
+            <p className="text-white/70 text-sm">Zeig mir, wo gerade was los ist</p>
+          </div>
+        </button>
+
         {!hideHowItWorks && (
           <button
             onClick={() => setShowHowItWorks(true)}
@@ -198,6 +283,16 @@ export default function HomeScreen() {
           onDontShow={() => {
             localStorage.setItem('hideHowItWorks', 'true');
             setShowHowItWorks(false);
+          }}
+        />
+      )}
+
+      {showHeatModal && (
+        <HeatLocationModal
+          onClose={() => setShowHeatModal(false)}
+          onConfirm={({ lat, lng, query }) => {
+            setShowHeatModal(false);
+            navigate('/heatmap', { state: { lat, lng, query } });
           }}
         />
       )}

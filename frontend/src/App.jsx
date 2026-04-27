@@ -43,6 +43,7 @@ import ChatScreen from './components/Chat/ChatScreen';
 import ChatListScreen from './components/Chat/ChatListScreen';
 import ProfileScreen from './components/Profile/ProfileScreen';
 import MapScreen from './components/Map/MapScreen';
+import HeatmapScreen from './components/Map/HeatmapScreen';
 import BottomNav from './components/Shared/BottomNav';
 import NotificationBanner from './components/Shared/NotificationBanner';
 
@@ -157,6 +158,13 @@ export default function App() {
           <ProtectedRoute>
             <MapErrorBoundary>
               <MapScreen />
+            </MapErrorBoundary>
+          </ProtectedRoute>
+        } />
+        <Route path="/heatmap" element={
+          <ProtectedRoute>
+            <MapErrorBoundary>
+              <HeatmapScreen />
             </MapErrorBoundary>
           </ProtectedRoute>
         } />
