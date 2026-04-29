@@ -193,6 +193,22 @@ db.exec(`
   );
 `);
 
+// Notification Settings
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notification_settings (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    matches_enabled INTEGER DEFAULT 1,
+    messages_enabled INTEGER DEFAULT 1,
+    invites_enabled INTEGER DEFAULT 1,
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// is_edited Spalte für messages (Abwärtskompatibel)
+try {
+  db.exec('ALTER TABLE messages ADD COLUMN is_edited INTEGER DEFAULT 0');
+} catch (e) { /* Spalte existiert bereits */ }
+
 // About Yesterday Tabellen
 db.exec(`
   CREATE TABLE IF NOT EXISTS yesterday_pins (
