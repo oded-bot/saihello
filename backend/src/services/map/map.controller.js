@@ -81,7 +81,7 @@ function getOfferPins(req, res) {
              o.seats_for_women, o.seats_for_men, o.seats_any_gender,
              o.group_age_min, o.group_age_max,
              p.display_name, p.age as offerer_age, p.gender as offerer_gender,
-             p.photo_1, p.is_verified, p.bio, p.rating, p.emoji as offerer_emoji
+             p.photo_1, p.is_verified, p.bio, p.rating, p.emoji as offerer_emoji, p.badges as offerer_badges
       FROM table_offers o
       JOIN profiles p ON p.user_id = o.user_id
       WHERE o.status = 'active'
@@ -110,7 +110,7 @@ function getOfferPins(req, res) {
       return true;
     });
 
-    const myProfile = db.prepare('SELECT display_name, age, gender, photo_1, is_verified, bio, rating, emoji FROM profiles WHERE user_id = ?').get(userId);
+    const myProfile = db.prepare('SELECT display_name, age, gender, photo_1, is_verified, bio, rating, emoji, badges FROM profiles WHERE user_id = ?').get(userId);
     const ownPin = mySearch && mySearch.location_lat != null && mySearch.location_lng != null ? [{
       id: mySearch.id,
       lat: mySearch.location_lat,
@@ -130,6 +130,7 @@ function getOfferPins(req, res) {
         bio: myProfile?.bio,
         rating: myProfile?.rating,
         emoji: myProfile?.emoji || null,
+        badges: myProfile?.badges ? JSON.parse(myProfile.badges) : [],
       },
     }] : [];
 
@@ -152,6 +153,7 @@ function getOfferPins(req, res) {
         bio: o.bio,
         rating: o.rating,
         emoji: o.offerer_emoji || null,
+        badges: o.offerer_badges ? JSON.parse(o.offerer_badges) : [],
       },
     }));
 
@@ -174,7 +176,7 @@ function getSeekerPins(req, res) {
     const pins = [];
 
     if (myOffer && myOffer.location_lat != null && myOffer.location_lng != null) {
-      const myProfile = db.prepare('SELECT display_name, age, gender, photo_1, is_verified, bio, rating, emoji FROM profiles WHERE user_id = ?').get(userId);
+      const myProfile = db.prepare('SELECT display_name, age, gender, photo_1, is_verified, bio, rating, emoji, badges FROM profiles WHERE user_id = ?').get(userId);
       pins.push({
         id: myOffer.id,
         lat: myOffer.location_lat,
@@ -194,6 +196,7 @@ function getSeekerPins(req, res) {
           bio: myProfile?.bio,
           rating: myProfile?.rating,
           emoji: myProfile?.emoji || null,
+          badges: myProfile?.badges ? JSON.parse(myProfile.badges) : [],
         },
       });
     }
@@ -207,7 +210,7 @@ function getSeekerPins(req, res) {
              s.date, s.time_from, s.time_until, s.seats_needed,
              s.preferred_genders, s.preferred_age_min, s.preferred_age_max,
              p.display_name, p.age as seeker_age, p.gender as seeker_gender,
-             p.photo_1, p.is_verified, p.bio, p.rating, p.emoji as seeker_emoji
+             p.photo_1, p.is_verified, p.bio, p.rating, p.emoji as seeker_emoji, p.badges as seeker_badges
       FROM seeker_searches s
       JOIN profiles p ON p.user_id = s.user_id
       WHERE s.status = 'active'
@@ -249,6 +252,7 @@ function getSeekerPins(req, res) {
           bio: s.bio,
           rating: s.rating,
           emoji: s.seeker_emoji || null,
+          badges: s.seeker_badges ? JSON.parse(s.seeker_badges) : [],
         },
       });
     });
@@ -288,7 +292,7 @@ function getOfferFeed(req, res) {
              o.seats_for_women, o.seats_for_men, o.seats_any_gender,
              o.group_age_min, o.group_age_max,
              p.display_name, p.age as offerer_age, p.gender as offerer_gender,
-             p.photo_1, p.is_verified, p.bio, p.rating, p.emoji as offerer_emoji
+             p.photo_1, p.is_verified, p.bio, p.rating, p.emoji as offerer_emoji, p.badges as offerer_badges
       FROM table_offers o
       JOIN profiles p ON p.user_id = o.user_id
       WHERE o.status = 'active'
@@ -343,6 +347,7 @@ function getOfferFeed(req, res) {
           bio: o.bio,
           rating: o.rating,
           emoji: o.offerer_emoji || null,
+          badges: o.offerer_badges ? JSON.parse(o.offerer_badges) : [],
         },
       };
     });
@@ -379,7 +384,7 @@ function getSeekerFeed(req, res) {
              s.date, s.time_from, s.time_until, s.seats_needed,
              s.preferred_genders, s.preferred_age_min, s.preferred_age_max,
              p.display_name, p.age as seeker_age, p.gender as seeker_gender,
-             p.photo_1, p.is_verified, p.bio, p.rating, p.emoji as seeker_emoji
+             p.photo_1, p.is_verified, p.bio, p.rating, p.emoji as seeker_emoji, p.badges as seeker_badges
       FROM seeker_searches s
       JOIN profiles p ON p.user_id = s.user_id
       WHERE s.status = 'active'
@@ -427,6 +432,7 @@ function getSeekerFeed(req, res) {
           bio: s.bio,
           rating: s.rating,
           emoji: s.seeker_emoji || null,
+          badges: s.seeker_badges ? JSON.parse(s.seeker_badges) : [],
         },
       };
     });

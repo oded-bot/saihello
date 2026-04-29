@@ -10,7 +10,7 @@ function generateCode() {
 
 async function register(req, res) {
   try {
-    const { username, password, email, displayName, age, gender, bio } = req.body;
+    const { username, password, email, displayName, age, gender, bio, badges } = req.body;
 
     const existingUsername = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
     if (existingUsername) {
@@ -36,13 +36,17 @@ async function register(req, res) {
     const insertUser = db.prepare(
       'INSERT INTO users (id, username, email, password_hash, is_approved, verification_code, verification_expires, email_verified) VALUES (?, ?, ?, ?, 0, ?, ?, 0)'
     );
+    const { VALID_BADGES } = require('../badges/badges.controller');
+    const safeBadges = Array.isArray(badges) ? badges.filter(b => VALID_BADGES.includes(b)) : [];
+    const badgesJson = safeBadges.length > 0 ? JSON.stringify(safeBadges) : null;
+
     const insertProfile = db.prepare(
-      'INSERT INTO profiles (id, user_id, display_name, age, gender, bio) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO profiles (id, user_id, display_name, age, gender, bio, badges) VALUES (?, ?, ?, ?, ?, ?, ?)'
     );
 
     const transaction = db.transaction(() => {
       insertUser.run(userId, username, email, passwordHash, code, expires);
-      insertProfile.run(profileId, userId, displayName, age, gender, bio || null);
+      insertProfile.run(profileId, userId, displayName, age, gender, bio || null, badgesJson);
     });
     transaction();
 
@@ -125,7 +129,7 @@ async function getMe(req, res) {
       SELECT u.id, u.username, u.created_at, u.is_admin, u.is_approved,
              p.display_name, p.bio, p.age, p.gender,
              p.photo_1, p.photo_2, p.photo_3, p.photo_4, p.photo_5, p.photo_6,
-             p.is_verified, p.rating, p.total_ratings, p.emoji
+             p.is_verified, p.rating, p.total_ratings, p.emoji, p.badges
       FROM users u
       LEFT JOIN profiles p ON p.user_id = u.id
       WHERE u.id = ?
@@ -149,6 +153,7 @@ async function getMe(req, res) {
       rating: u.rating || 0,
       totalRatings: u.total_ratings,
       emoji: u.emoji || null,
+      badges: u.badges ? JSON.parse(u.badges) : [],
       createdAt: u.created_at,
     });
   } catch (err) {

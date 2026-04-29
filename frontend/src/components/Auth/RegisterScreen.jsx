@@ -4,6 +4,8 @@ import { Flame, ChevronLeft } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import useLanguage from '../../hooks/useLanguage';
 import toast from 'react-hot-toast';
+import { FEATURES } from '../../config/features';
+import BadgePicker from '../Badges/BadgePicker';
 
 export default function RegisterScreen() {
   const [form, setForm] = useState({
@@ -12,6 +14,7 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMismatch, setPasswordMismatch] = useState(false);
   const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [selectedBadges, setSelectedBadges] = useState([]);
   const { register, loading } = useAuthStore();
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -39,6 +42,7 @@ export default function RegisterScreen() {
     const result = await register({
       ...form,
       age: parseInt(form.age),
+      badges: FEATURES.inclusivityBadges ? selectedBadges : [],
     });
     if (result.success) {
       toast.success(t('verificationCodeSent'));
@@ -158,6 +162,12 @@ export default function RegisterScreen() {
           maxLength={500}
           className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-tinder-pink focus:ring-1 focus:ring-tinder-pink/30 transition resize-none"
         />
+
+        {FEATURES.inclusivityBadges && (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+            <BadgePicker selected={selectedBadges} onChange={setSelectedBadges} />
+          </div>
+        )}
 
         <label className="flex items-start gap-3 mt-2 cursor-pointer">
           <input

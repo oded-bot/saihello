@@ -1,5 +1,9 @@
 const { v4: uuid } = require('uuid');
 const db = require('../../config/database');
+const leaderboard = require('../leaderboard/leaderboard');
+
+let _io = null;
+function setIo(io) { _io = io; }
 
 function getSuperLikeStatus(req, res) {
   try {
@@ -281,6 +285,8 @@ function acceptInvite(req, res) {
       VALUES (?, ?, ?, ?, 'system')
     `).run(uuid(), matchId, userId, `✅ ${seekerProfile.display_name} hat die Einladung angenommen! Wir sehen uns auf der Wiesn!`);
 
+    if (_io) leaderboard.broadcast(_io);
+
     res.json({ message: 'Einladung angenommen!', seatsRemaining: newSeats });
   } catch (err) {
     console.error('acceptInvite Fehler:', err);
@@ -468,4 +474,4 @@ function inviteSeeker(req, res) {
   }
 }
 
-module.exports = { swipe, inviteSeeker, getSuperLikeStatus, getMatches, getMatchDetail, confirmMatch, acceptInvite, rejectMatch, cancelMatch, rateMatch, getReceivedLikes };
+module.exports = { swipe, inviteSeeker, getSuperLikeStatus, getMatches, getMatchDetail, confirmMatch, acceptInvite, rejectMatch, cancelMatch, rateMatch, getReceivedLikes, setIo };

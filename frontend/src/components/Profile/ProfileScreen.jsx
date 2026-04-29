@@ -7,6 +7,8 @@ import useLanguage from '../../hooks/useLanguage';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import ImageLightbox from '../Shared/ImageLightbox';
+import { FEATURES } from '../../config/features';
+import BadgePicker from '../Badges/BadgePicker';
 
 export default function ProfileScreen() {
   const { user, logout, updateUser } = useAuthStore();
@@ -20,6 +22,7 @@ export default function ProfileScreen() {
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentEmoji, setCurrentEmoji] = useState(null);
+  const [myBadges, setMyBadges] = useState([]);
 
   const EMOJIS = [
     '😀','😎','🤩','😍','🥳','🤠','🎭','👑',
@@ -31,6 +34,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadProfile();
     loadNotifSettings();
+    if (FEATURES.inclusivityBadges) loadBadges();
   }, []);
 
   async function loadProfile() {
@@ -91,6 +95,23 @@ export default function ProfileScreen() {
       loadProfile();
     } catch (err) {
       toast.error(t('saveFailed'));
+    }
+  }
+
+  async function loadBadges() {
+    try {
+      const { data } = await api.get('/badges/mine');
+      setMyBadges(data.badges || []);
+    } catch {}
+  }
+
+  async function saveBadges(badges) {
+    try {
+      await api.patch('/badges/mine', { badges });
+      setMyBadges(badges);
+      toast.success('Badges gespeichert');
+    } catch {
+      toast.error('Speichern fehlgeschlagen');
     }
   }
 
@@ -272,6 +293,17 @@ export default function ProfileScreen() {
           </div>
         )}
       </div>
+
+      {/* Inclusivity Badges */}
+      {FEATURES.inclusivityBadges && (
+        <div className="mb-6 bg-gray-50 dark:bg-dark-card rounded-2xl p-4">
+          <div className="mb-3">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">Meine Badges</p>
+            <p className="text-xs text-gray-400 mt-0.5">Zeige anderen, wer du bist oder was dir wichtig ist</p>
+          </div>
+          <BadgePicker selected={myBadges} onChange={saveBadges} compact />
+        </div>
+      )}
 
       {/* Menu */}
       <div className="space-y-1">

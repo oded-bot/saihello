@@ -6,6 +6,9 @@ import { ChevronLeft } from 'lucide-react';
 import api from '../../utils/api';
 import useAuthStore from '../../context/authStore';
 import BottomNav from '../Shared/BottomNav';
+import BadgeDisplay from '../Badges/BadgeDisplay';
+import { FEATURES } from '../../config/features';
+import { BADGES } from '../Badges/badgeConfig';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -117,6 +120,12 @@ function PinPopup({ pin, onLike, onSuperLike, onClose, isOffer }) {
 
         {p.bio && <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3 mb-4 italic">"{p.bio}"</p>}
 
+        {FEATURES.inclusivityBadges && p.badges?.length > 0 && (
+          <div className="mb-4">
+            <BadgeDisplay badges={p.badges} />
+          </div>
+        )}
+
         <div className="flex gap-3">
           <button onClick={() => onLike(pin)} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-semibold text-sm">
             Like
@@ -146,6 +155,8 @@ export default function MapScreen() {
   const [viewMode, setViewMode] = useState('map');
   const [feedItems, setFeedItems] = useState([]);
   const [feedLoading, setFeedLoading] = useState(false);
+  const [badgeFilter, setBadgeFilter] = useState([]);
+  const [showBadgeFilter, setShowBadgeFilter] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -192,6 +203,14 @@ export default function MapScreen() {
       }
     });
   }, []);
+
+  function matchesBadgeFilter(profile) {
+    if (!FEATURES.inclusivityBadges || badgeFilter.length === 0) return true;
+    return badgeFilter.some(b => profile?.badges?.includes(b));
+  }
+
+  const filteredPins = pins.filter(p => p.isOwn || matchesBadgeFilter(p.profile));
+  const filteredFeedItems = feedItems.filter(item => matchesBadgeFilter(item.profile));
 
   const handleLike = async (pin) => {
     try {
@@ -283,27 +302,61 @@ export default function MapScreen() {
   if (viewMode === 'feed' && (myStatus === 'search' || myStatus === 'offer')) {
     return (
       <div className="flex flex-col w-full bg-gray-50" style={{ height: 'calc(100vh - 64px)' }}>
-        <div className="flex bg-white border-b border-gray-200 px-4 pt-3 pb-0 gap-0 shrink-0" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
-          <button
-            onClick={() => setViewMode('map')}
-            className="flex-1 py-2 text-sm font-semibold text-gray-400 border-b-2 border-transparent"
-          >Karte</button>
-          <button
-            onClick={() => { setViewMode('feed'); loadFeed(); }}
-            className="flex-1 py-2 text-sm font-semibold text-blue-900 border-b-2 border-blue-900"
-          >Feed</button>
+        <div className="shrink-0 bg-white border-b border-gray-200" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
+          <div className="flex px-4">
+            <button
+              onClick={() => setViewMode('map')}
+              className="flex-1 py-2 text-sm font-semibold text-gray-400 border-b-2 border-transparent"
+            >Karte</button>
+            <button
+              onClick={() => { setViewMode('feed'); loadFeed(); }}
+              className="flex-1 py-2 text-sm font-semibold text-blue-900 border-b-2 border-blue-900"
+            >Feed</button>
+            {FEATURES.inclusivityBadges && (
+              <button
+                onClick={() => setShowBadgeFilter(v => !v)}
+                className={`px-3 py-2 text-sm font-semibold border-b-2 transition ${badgeFilter.length > 0 ? 'text-violet-600 border-violet-600' : 'text-gray-400 border-transparent'}`}
+              >
+                {badgeFilter.length > 0 ? `Filter (${badgeFilter.length})` : '🏷 Filter'}
+              </button>
+            )}
+          </div>
+          {FEATURES.inclusivityBadges && showBadgeFilter && (
+            <div className="px-4 py-2 border-t border-gray-100">
+              <div className="flex flex-wrap gap-1.5 mb-1">
+                {BADGES.map(({ id, emoji, label }) => {
+                  const active = badgeFilter.includes(id);
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setBadgeFilter(prev => active ? prev.filter(b => b !== id) : [...prev, id])}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-all ${active ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-500'}`}
+                    >
+                      <span>{emoji}</span><span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {badgeFilter.length > 0 && (
+                <button onClick={() => setBadgeFilter([])} className="text-xs text-violet-600 font-medium">
+                  Filter zurücksetzen
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {feedLoading ? (
             <div className="text-center text-gray-400 text-sm mt-8">Laden...</div>
-          ) : feedItems.length === 0 ? (
+          ) : filteredFeedItems.length === 0 ? (
             <div className="text-center text-gray-400 text-sm mt-8">
-              <p className="text-2xl mb-2">🔍</p>
-              <p>Keine passenden Einträge gefunden.</p>
-              <p className="text-xs mt-1">Kriterien anpassen oder später nochmal versuchen.</p>
+              <p className="text-2xl mb-2">{badgeFilter.length > 0 ? '🏷' : '🔍'}</p>
+              <p>{badgeFilter.length > 0 ? 'Keine User mit diesen Badges gefunden.' : 'Keine passenden Einträge gefunden.'}</p>
+              <p className="text-xs mt-1">{badgeFilter.length > 0 ? 'Filter anpassen oder zurücksetzen.' : 'Kriterien anpassen oder später nochmal versuchen.'}</p>
             </div>
-          ) : feedItems.map(item => (
+          ) : filteredFeedItems.map(item => (
             <div key={item.id} className="bg-white rounded-2xl shadow p-4">
               <div className="flex items-center gap-3 mb-3">
                 {item.profile.photo ? (
@@ -338,6 +391,12 @@ export default function MapScreen() {
 
               {item.profile.bio && (
                 <p className="text-xs text-gray-500 italic bg-gray-50 rounded-xl px-3 py-2 mb-3">"{item.profile.bio}"</p>
+              )}
+
+              {FEATURES.inclusivityBadges && item.profile.badges?.length > 0 && (
+                <div className="mb-3">
+                  <BadgeDisplay badges={item.profile.badges} />
+                </div>
               )}
 
               <div className="flex gap-2">
@@ -380,7 +439,7 @@ export default function MapScreen() {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
         {center && <RecenterMap center={center} />}
-        {pins.map(pin => (
+        {filteredPins.map(pin => (
           <Marker
             key={pin.id}
             position={[pin.lat, pin.lng]}
@@ -415,13 +474,49 @@ export default function MapScreen() {
                 </p>
                 <p className="text-xs text-gray-500">{myItem?.date} · {myItem?.time_from}–{myItem?.time_until}</p>
               </div>
-              <div className="text-right flex-shrink-0 w-20">
-                <p className="text-2xl font-bold text-blue-900">{pins.filter(p => !p.isOwn).length}</p>
-                <p className="text-xs text-gray-500 leading-tight">
-                  {myStatus === 'offer' ? 'Suchende in der Nähe' : 'Angebote in der Nähe'}
-                </p>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="text-right w-16">
+                  <p className="text-2xl font-bold text-blue-900">{filteredPins.filter(p => !p.isOwn).length}</p>
+                  <p className="text-xs text-gray-500 leading-tight">
+                    {myStatus === 'offer' ? 'Suchende' : 'Angebote'}
+                  </p>
+                </div>
+                {FEATURES.inclusivityBadges && (
+                  <button
+                    onClick={() => setShowBadgeFilter(v => !v)}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center text-base transition ${badgeFilter.length > 0 ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-500'}`}
+                    title="Badge-Filter"
+                  >
+                    {badgeFilter.length > 0 ? `${badgeFilter.length}` : '🏷'}
+                  </button>
+                )}
               </div>
             </div>
+            {FEATURES.inclusivityBadges && showBadgeFilter && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <p className="text-xs text-gray-400 mb-1.5">Nur User mit diesen Badges zeigen:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {BADGES.map(({ id, emoji, label }) => {
+                    const active = badgeFilter.includes(id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setBadgeFilter(prev => active ? prev.filter(b => b !== id) : [...prev, id])}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-all ${active ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-500'}`}
+                      >
+                        <span>{emoji}</span><span>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {badgeFilter.length > 0 && (
+                  <button onClick={() => setBadgeFilter([])} className="text-xs text-violet-600 mt-1.5 font-medium">
+                    Filter zurücksetzen
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-2xl px-4 py-3 shadow text-center">

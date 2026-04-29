@@ -55,6 +55,19 @@ const HowsMyStyleScreen = FEATURES.howsMyStyle
   ? React.lazy(() => import('./components/Style/HowsMyStyleScreen'))
   : null;
 
+// Life Feed
+const LifeFeedScreen = FEATURES.lifeFeed
+  ? React.lazy(() => import('./components/Feed/LifeFeedScreen'))
+  : null;
+
+// About Yesterday
+const YesterdayScreen = FEATURES.yesterday
+  ? React.lazy(() => import('./components/Yesterday/YesterdayScreen'))
+  : null;
+const YesterdayChatScreen = FEATURES.yesterday
+  ? React.lazy(() => import('./components/Yesterday/YesterdayChatScreen'))
+  : null;
+
 // Connect (Feature-Flag)
 const ConnectScreen = FEATURES.directConnect
   ? React.lazy(() => import('./components/Connect/ConnectScreen'))
@@ -169,15 +182,33 @@ export default function App() {
           </ProtectedRoute>
         } />
 
-        {/* Style - How's my Style? */}
-        {FEATURES.howsMyStyle && HowsMyStyleScreen && (
-          <Route path="/style" element={
+        {/* Life Feed */}
+        {FEATURES.lifeFeed && LifeFeedScreen && (
+          <Route path="/feed" element={
             <ProtectedRoute>
-              <AppLayout>
-                <React.Suspense fallback={<div className="flex items-center justify-center h-[60vh]"><span className="text-gray-400">Laden...</span></div>}>
-                  <HowsMyStyleScreen />
-                </React.Suspense>
-              </AppLayout>
+              <React.Suspense fallback={<div className="flex items-center justify-center h-screen bg-black"><span className="text-gray-400">Laden...</span></div>}>
+                <LifeFeedScreen />
+              </React.Suspense>
+            </ProtectedRoute>
+          } />
+        )}
+
+        {/* About Yesterday */}
+        {FEATURES.yesterday && YesterdayScreen && (
+          <Route path="/yesterday" element={
+            <ProtectedRoute>
+              <React.Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="text-gray-400">Laden...</span></div>}>
+                <YesterdayScreen />
+              </React.Suspense>
+            </ProtectedRoute>
+          } />
+        )}
+        {FEATURES.yesterday && YesterdayChatScreen && (
+          <Route path="/yesterday/chat/:chatId" element={
+            <ProtectedRoute>
+              <React.Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="text-gray-400">Laden...</span></div>}>
+                <YesterdayChatScreen />
+              </React.Suspense>
             </ProtectedRoute>
           } />
         )}

@@ -1,4 +1,7 @@
 export const FEATURES = {
   directConnect: false,
-  howsMyStyle: true,
+  howsMyStyle: false,
+  lifeFeed: true,
+  inclusivityBadges: true,
+  yesterday: true,
 };

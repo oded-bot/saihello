@@ -57,7 +57,11 @@ app.use('/api/notifications', require('./services/notifications/notifications.ro
 app.use('/api/connect', require('./services/connect/connect.routes'));
 app.use('/api/seeker', require('./services/seeker/seeker.routes'));
 app.use('/api/map', require('./services/map/map.routes'));
+app.use('/api/badges', require('./services/badges/badges.routes'));
+app.use('/api/feed', require('./services/feed/feed.routes'));
+app.use('/api/leaderboard', require('./services/leaderboard/leaderboard.routes'));
 app.use('/api/admin', require('./services/admin/admin.routes'));
+app.use('/api/yesterday', require('./services/yesterday/yesterday.routes'));
 
 // Health Check
 app.get('/api/health', (req, res) => {
@@ -66,6 +70,9 @@ app.get('/api/health', (req, res) => {
 
 // WebSocket Chat
 setupChatSocket(io);
+
+// Leaderboard: io an matching controller übergeben
+require('./services/matching/matching.controller').setIo(io);
 
 // Start
 server.listen(PORT, () => {

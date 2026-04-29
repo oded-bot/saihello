@@ -173,6 +173,74 @@ db.exec(`
   );
 `);
 
+// Life Feed Tabellen
+db.exec(`
+  CREATE TABLE IF NOT EXISTS life_feed_videos (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    video_url TEXT NOT NULL,
+    caption TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS life_feed_reactions (
+    id TEXT PRIMARY KEY,
+    video_id TEXT NOT NULL REFERENCES life_feed_videos(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reaction_type TEXT NOT NULL CHECK (reaction_type IN ('thumbs_up', 'laughing', 'super_drauf', 'gute_unterhaltung')),
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(video_id, user_id)
+  );
+`);
+
+// About Yesterday Tabellen
+db.exec(`
+  CREATE TABLE IF NOT EXISTS yesterday_pins (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    lat REAL NOT NULL,
+    lng REAL NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS yesterday_feed_actions (
+    id TEXT PRIMARY KEY,
+    actor_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subject_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    action TEXT NOT NULL CHECK (action IN ('liked', 'passed')),
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(actor_id, subject_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS yesterday_requests (
+    id TEXT PRIMARY KEY,
+    user1_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user2_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user1_accepted INTEGER DEFAULT 0,
+    user2_accepted INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+    chat_id TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(user1_id, user2_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS yesterday_chats (
+    id TEXT PRIMARY KEY,
+    user1_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user2_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS yesterday_messages (
+    id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL REFERENCES yesterday_chats(id) ON DELETE CASCADE,
+    sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    is_read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // Direct Connect Tabellen
 db.exec(`
   CREATE TABLE IF NOT EXISTS connect_requests (
