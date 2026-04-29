@@ -36,8 +36,8 @@ function httpGet(hostname, path) {
 }
 
 // Find nearby POIs via Overpass API (free, no credits)
-async function findNearbyVenues(lat, lng, radiusM = 500, limit = 6) {
-  const query = `[out:json][timeout:10];(node["amenity"~"restaurant|bar|cafe|pub|nightclub|biergarten|food_court"](around:${radiusM},${lat},${lng});node["tourism"~"attraction"](around:${radiusM},${lat},${lng}););out ${limit};`;
+async function findNearbyVenues(lat, lng, radiusM = 500, limit = 30) {
+  const query = `[out:json][timeout:15];(node["amenity"~"restaurant|bar|cafe|pub|nightclub|biergarten|food_court"](around:${radiusM},${lat},${lng});node["tourism"~"attraction"](around:${radiusM},${lat},${lng}););out ${limit};`;
   const encoded = encodeURIComponent(query);
   const data = await httpGet('overpass-api.de', `/api/interpreter?data=${encoded}`);
   if (!data || !data.elements) return [];
@@ -48,8 +48,7 @@ async function findNearbyVenues(lat, lng, radiusM = 500, limit = 6) {
       address: [e.tags['addr:street'], e.tags['addr:city'] || 'Germany'].filter(Boolean).join(', ') || 'Germany',
       lat: e.lat,
       lng: e.lon,
-    }))
-    .slice(0, limit);
+    }));
 }
 
 // Get BestTime forecast for a venue (costs 2 credits per new venue)
@@ -472,8 +471,8 @@ async function getHeatmap(req, res) {
       return res.status(400).json({ error: 'Ort oder Koordinaten erforderlich' });
     }
 
-    // 1. Find nearby venues via Overpass (free)
-    const venues = await findNearbyVenues(centerLat, centerLng, radius, 5);
+    // 1. Find nearby venues via Overpass (free) — large pool for geographic spread
+    const venues = await findNearbyVenues(centerLat, centerLng, radius, 30);
 
     // Always include the searched location itself as the first venue
     const searchedVenue = query
@@ -497,7 +496,7 @@ async function getHeatmap(req, res) {
       const vLat = bt.venue_info?.venue_lat ?? allVenues[i].lat;
       const vLng = bt.venue_info?.venue_lon ?? allVenues[i].lng;
 
-      let intensity = 0.3;
+      let intensity = 0;
       try {
         const dayData = bt.analysis?.find(d => d.day_info?.day_int === dayInt);
         const hourData = dayData?.hour_analysis?.find(h => h.hour_int === hourInt);
@@ -505,8 +504,12 @@ async function getHeatmap(req, res) {
         else if (dayData?.day_info?.day_mean != null) intensity = dayData.day_info.day_mean / 100;
       } catch {}
 
-      heatPoints.push([vLat, vLng, Math.max(0.1, intensity)]);
+      heatPoints.push({ lat: vLat, lng: vLng, intensity: Math.max(0.1, intensity) });
     });
+
+    // Sortiere nach Aktivität absteigend, behalte die 8 aktivsten
+    heatPoints.sort((a, b) => b.intensity - a.intensity);
+    const topHeatPoints = heatPoints.slice(0, 8).map(p => [p.lat, p.lng, p.intensity]);
 
     // 3. Also get our app's pins in the area (non-clickable overlay)
     const today = now.toISOString().slice(0, 10);
@@ -531,7 +534,7 @@ async function getHeatmap(req, res) {
 
     res.json({
       centerLat, centerLng, locationLabel,
-      heatPoints,
+      heatPoints: topHeatPoints,
       venueCount: allVenues.length,
       offerPins: offerPins.map(p => ({ ...p, type: 'offer' })),
       seekerPins: seekerPins.map(p => ({ ...p, type: 'seeker' })),
