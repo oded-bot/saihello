@@ -1,77 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Search, PlusCircle, Star, TrendingUp, X, Navigation } from 'lucide-react';
+import { Flame, Search, PlusCircle, Star, TrendingUp, X, CalendarDays } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import useLanguage from '../../hooks/useLanguage';
 import api from '../../utils/api';
 import { FEATURES } from '../../config/features';
 import { connectSocket } from '../../utils/socket';
 
+const NEXT_EVENTS = [
+  { emoji: '🍺', name: 'Oktoberfest', date: '18. Sep – 4. Okt 2027', city: 'München' },
+  { emoji: '🎭', name: 'Kölner Karneval', date: '8. – 12. Feb 2027', city: 'Köln' },
+  { emoji: '🎉', name: 'Mardi Gras', date: '16. Feb 2027', city: 'New Orleans' },
+];
 
-function HeatLocationModal({ onClose, onConfirm }) {
-  const [query, setQuery] = useState('');
-  const [gpsLoading, setGpsLoading] = useState(false);
-  const [gpsError, setGpsError] = useState('');
-
-  function handleGps() {
-    if (!navigator.geolocation) { setGpsError('GPS nicht verfügbar'); return; }
-    setGpsLoading(true);
-    setGpsError('');
-    navigator.geolocation.getCurrentPosition(
-      pos => { setGpsLoading(false); onConfirm({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
-      () => { setGpsLoading(false); setGpsError('Standort nicht verfügbar. Bitte Zugriff erlauben.'); },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }
-
+function NextEventModal({ onClose }) {
   return (
     <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div className="bg-white dark:bg-dark-card rounded-t-3xl w-full max-w-md p-6 shadow-2xl" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">🔥 Where's the heat?</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">📅 Nächste Events</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-dark-elevated flex items-center justify-center">
             <X size={16} className="text-gray-500" />
           </button>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Wo soll die Heatmap angezeigt werden?</p>
-
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">ServusWiesn ist dabei — sei es auch.</p>
         <div className="space-y-3">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="z.B. Marienplatz München, Times Square…"
-              className="flex-1 border border-gray-200 dark:border-dark-separator rounded-xl px-4 py-3 text-sm bg-gray-50 dark:bg-dark-elevated text-gray-900 dark:text-white focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/30 placeholder-gray-400"
-              onKeyDown={e => e.key === 'Enter' && query.trim() && onConfirm({ query: query.trim() })}
-            />
-            <button
-              onClick={() => query.trim() && onConfirm({ query: query.trim() })}
-              disabled={!query.trim()}
-              className="bg-orange-500 text-white px-4 rounded-xl font-semibold text-sm disabled:opacity-40"
-            >
-              Los
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-gray-200 dark:bg-dark-separator" />
-            <span className="text-xs text-gray-400">oder</span>
-            <div className="flex-1 h-px bg-gray-200 dark:bg-dark-separator" />
-          </div>
-
-          <button
-            onClick={handleGps}
-            disabled={gpsLoading}
-            className="w-full flex items-center justify-center gap-2 border-2 border-orange-400 text-orange-500 py-3 rounded-xl text-sm font-semibold active:scale-95 transition disabled:opacity-60"
-          >
-            {gpsLoading
-              ? <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
-              : <Navigation size={16} />}
-            Aktueller Standort
-          </button>
-
-          {gpsError && <p className="text-xs text-red-500 text-center">{gpsError}</p>}
+          {NEXT_EVENTS.map(ev => (
+            <div key={ev.name} className="flex items-center gap-4 bg-gray-50 dark:bg-dark-elevated rounded-2xl p-4">
+              <span className="text-3xl">{ev.emoji}</span>
+              <div className="flex-1">
+                <p className="font-bold text-gray-900 dark:text-white text-sm">{ev.name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{ev.date} · {ev.city}</p>
+              </div>
+              <span className="text-xs font-semibold text-tinder-pink bg-pink-50 dark:bg-pink-900/20 px-3 py-1 rounded-full">Bald</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -84,7 +47,7 @@ export default function HomeScreen() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ offers: 0, matches: 0 });
   const [pendingInvites, setPendingInvites] = useState(0);
-  const [showHeatModal, setShowHeatModal] = useState(false);
+  const [showNextEventModal, setShowNextEventModal] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
@@ -161,20 +124,22 @@ export default function HomeScreen() {
       {/* Action Cards */}
       <div className="space-y-4">
 
-        {/* 1. Wo ist was los? — volle Breite */}
-        <button
-          onClick={() => setShowHeatModal(true)}
-          className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform shadow-lg"
-          style={{ backgroundColor: '#f97316' }}
-        >
-          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center shrink-0 text-3xl">
-            🔥
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-white">Wo ist was los?</h3>
-            <p className="text-white/70 text-sm">Zeig mir, wo gerade was los ist</p>
-          </div>
-        </button>
+        {/* 1. Nächstes Event — volle Breite */}
+        {FEATURES.nextEvent && (
+          <button
+            onClick={() => setShowNextEventModal(true)}
+            className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform shadow-lg"
+            style={{ backgroundColor: '#0f766e' }}
+          >
+            <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center shrink-0">
+              <CalendarDays size={30} className="text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">Nächstes Event</h3>
+              <p className="text-white/70 text-sm">Schau, wo ServusWiesn als Nächstes dabei ist</p>
+            </div>
+          </button>
+        )}
 
         {/* 2–4 Karten + optionaler About-yesterday-Streifen links */}
         <div className="flex gap-3">
@@ -248,15 +213,7 @@ export default function HomeScreen() {
 
       </div>
 
-      {showHeatModal && (
-        <HeatLocationModal
-          onClose={() => setShowHeatModal(false)}
-          onConfirm={({ lat, lng, query }) => {
-            setShowHeatModal(false);
-            navigate('/heatmap', { state: { lat, lng, query } });
-          }}
-        />
-      )}
+      {showNextEventModal && <NextEventModal onClose={() => setShowNextEventModal(false)} />}
 
       {/* Leaderboard */}
       {leaderboard.length > 0 && (

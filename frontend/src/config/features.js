@@ -4,4 +4,6 @@ export const FEATURES = {
   lifeFeed: true,
   inclusivityBadges: true,
   yesterday: true,
+  heatmap: false,
+  nextEvent: true,
 };
