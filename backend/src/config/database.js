@@ -278,6 +278,36 @@ db.exec(`
   );
 `);
 
+// Tracker: Sai You There!
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tracker_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    city TEXT NOT NULL,
+    emoji TEXT DEFAULT '🎉',
+    event_date TEXT NOT NULL,
+    threshold_soft INTEGER NOT NULL,
+    threshold_hard INTEGER NOT NULL,
+    is_active INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS tracker_registrations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL REFERENCES tracker_events(id),
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(event_id, email)
+  );
+`);
+
+const trackerEventCount = db.prepare('SELECT COUNT(*) as c FROM tracker_events').get();
+if (trackerEventCount.c === 0) {
+  db.prepare(`INSERT INTO tracker_events (name, city, emoji, event_date, threshold_soft, threshold_hard, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run('Kölner Karneval', 'Köln', '🎭', '2027-02-08', 75, 150, 1);
+}
+
 // Indexes
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);

@@ -62,6 +62,7 @@ app.use('/api/feed', require('./services/feed/feed.routes'));
 app.use('/api/leaderboard', require('./services/leaderboard/leaderboard.routes'));
 app.use('/api/admin', require('./services/admin/admin.routes'));
 app.use('/api/yesterday', require('./services/yesterday/yesterday.routes'));
+app.use('/api/tracker', require('./services/tracker/tracker.routes'));
 
 // Health Check
 app.get('/api/health', (req, res) => {

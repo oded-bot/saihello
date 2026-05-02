@@ -29,6 +29,7 @@ import VerifyScreen from './components/Auth/VerifyScreen';
 
 // Landing
 import LandingPage from './components/Landing/LandingPage';
+import SaiYouTherePage from './components/Tracker/SaiYouTherePage';
 
 // Legal
 import PrivacyScreen from './components/Legal/PrivacyScreen';
@@ -121,8 +122,12 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyScreen />} />
         <Route path="/imprint" element={<ImprintScreen />} />
 
-        {/* Landing Page — only when not logged in */}
-        <Route path="/" element={token ? <Navigate to="/home" replace /> : <LandingPage />} />
+        {/* Landing / Tracker */}
+        <Route path="/" element={
+          FEATURES.trackerActive
+            ? <SaiYouTherePage />
+            : (token ? <Navigate to="/home" replace /> : <LandingPage />)
+        } />
 
         {/* Protected */}
         <Route path="/home" element={
