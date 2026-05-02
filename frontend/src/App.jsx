@@ -29,7 +29,7 @@ import VerifyScreen from './components/Auth/VerifyScreen';
 
 // Landing
 import LandingPage from './components/Landing/LandingPage';
-import SaiYouTherePage from './components/Tracker/SaiYouTherePage';
+import TrackerPage from './modules/tracker';
 
 // Legal
 import PrivacyScreen from './components/Legal/PrivacyScreen';
@@ -125,7 +125,7 @@ export default function App() {
         {/* Landing / Tracker */}
         <Route path="/" element={
           FEATURES.trackerActive
-            ? <SaiYouTherePage />
+            ? <TrackerPage isLoggedIn={!!token} onGoToApp={() => window.location.href = '/home'} />
             : (token ? <Navigate to="/home" replace /> : <LandingPage />)
         } />
 

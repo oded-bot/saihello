@@ -302,6 +302,11 @@ db.exec(`
   );
 `);
 
+// Tracker registrations: neue Spalten (abwärtskompatibel)
+try { db.exec('ALTER TABLE tracker_registrations ADD COLUMN city TEXT'); } catch(e) {}
+try { db.exec('ALTER TABLE tracker_registrations ADD COLUMN referral_code TEXT'); } catch(e) {}
+try { db.exec('ALTER TABLE tracker_registrations ADD COLUMN referred_by TEXT'); } catch(e) {}
+
 const trackerEventCount = db.prepare('SELECT COUNT(*) as c FROM tracker_events').get();
 if (trackerEventCount.c === 0) {
   db.prepare(`INSERT INTO tracker_events (name, city, emoji, event_date, threshold_soft, threshold_hard, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)`)
