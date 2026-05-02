@@ -1,7 +1,7 @@
 export const translations = {
   de: {
     // Home
-    greeting: 'Servus',
+    greeting: 'Hello',
     findPlace: 'Platz finden',
     findPlaceDesc: 'Swipe durch verfügbare Tische',
     offerPlace: 'Platz anbieten',
@@ -293,7 +293,7 @@ export const translations = {
   },
 
   en: {
-    greeting: 'Servus',
+    greeting: 'Hello',
     findPlace: 'Find a Seat',
     findPlaceDesc: 'Swipe through available tables',
     offerPlace: 'Offer a Seat',
