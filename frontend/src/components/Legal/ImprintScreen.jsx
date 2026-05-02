@@ -66,7 +66,7 @@ export default function ImprintScreen() {
 
         <h3 className="font-semibold text-gray-800 dark:text-gray-200">Plattform-Haftungsausschluss</h3>
         <p>
-          Servus Wiesn ist eine Vermittlungsplattform für Oktoberfest-Tischplätze. Wir übernehmen keine Haftung
+          SaiHello ist eine Vermittlungsplattform für Oktoberfest-Tischplätze. Wir übernehmen keine Haftung
           für die tatsächliche Verfügbarkeit oder Qualität von Tischplätzen. Alle Vereinbarungen werden
           direkt zwischen den Nutzern getroffen. Ein Anspruch auf erfolgreiche Vermittlung besteht nicht.
         </p>

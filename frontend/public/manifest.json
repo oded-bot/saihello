@@ -1,6 +1,6 @@
 {
-  "name": "Servus Wiesn",
-  "short_name": "ServusWiesn",
+  "name": "SaiHello",
+  "short_name": "SaiHello",
   "description": "Oktoberfest Tisch-Matching — Finde deinen Platz!",
   "start_url": "/",
   "display": "standalone",

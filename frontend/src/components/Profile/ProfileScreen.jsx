@@ -431,14 +431,14 @@ export default function ProfileScreen() {
         </button>
       </div>
 
-      {/* How ServusWiesn Works – Neu aufrufen */}
+      {/* How SaiHello Works – Neu aufrufen */}
       {localStorage.getItem('hideHowItWorks') === 'true' && (
         <button
           onClick={() => { localStorage.removeItem('hideHowItWorks'); window.location.reload(); }}
           className="w-full mt-4 py-3 bg-gray-50 dark:bg-dark-card text-green-500 font-medium rounded-xl flex items-center justify-center gap-2 dark-transition"
         >
           <span>❓</span>
-          How ServusWiesn Works erneut anzeigen
+          How SaiHello Works erneut anzeigen
         </button>
       )}
 
@@ -451,7 +451,7 @@ export default function ProfileScreen() {
         {t('logout')}
       </button>
 
-      <p className="text-center text-gray-300 dark:text-gray-600 text-xs mt-6 pb-4">Servus Wiesn v2.0</p>
+      <p className="text-center text-gray-300 dark:text-gray-600 text-xs mt-6 pb-4">SaiHello v1.0</p>
 
       {/* Lightbox */}
       {lightboxSrc && (

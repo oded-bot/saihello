@@ -23,7 +23,7 @@ function NextEventModal({ onClose }) {
             <X size={16} className="text-gray-500" />
           </button>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">ServusWiesn ist dabei — sei es auch.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">SaiHello ist dabei — sei es auch.</p>
         <div className="space-y-3">
           {NEXT_EVENTS.map(ev => (
             <div key={ev.name} className="flex items-center gap-4 bg-gray-50 dark:bg-dark-elevated rounded-2xl p-4">
@@ -136,7 +136,7 @@ export default function HomeScreen() {
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">Nächstes Event</h3>
-              <p className="text-white/70 text-sm">Schau, wo ServusWiesn als Nächstes dabei ist</p>
+              <p className="text-white/70 text-sm">Schau, wo SaiHello als Nächstes dabei ist</p>
             </div>
           </button>
         )}
