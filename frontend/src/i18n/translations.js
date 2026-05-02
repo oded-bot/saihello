@@ -125,7 +125,7 @@ export const translations = {
     noChats: 'Noch keine Chats',
     findMatchToChat: 'Finde ein Match um loszuchatten',
     message: 'Nachricht...',
-    sayHi: 'Sag Servus!',
+    sayHi: 'Sag Hello!',
     edited: 'bearbeitet',
     edit: 'Bearbeiten',
     delete: 'Löschen',
