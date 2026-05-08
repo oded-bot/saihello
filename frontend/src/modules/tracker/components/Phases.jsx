@@ -78,25 +78,46 @@ export function PhaseTwo({ data }) {
   );
 }
 
+const GROWTH_MILESTONES = [300, 500, 1000, 2000, 5000];
+
 export function PhaseThree({ data }) {
-  const { count, recentCount, event, cities } = data;
-  const pct = Math.min(100, Math.round((count / event.threshold_hard) * 100));
+  const { count, recentCount, event, cities, thresholdReached } = data;
+
+  const nextGrowthMilestone = GROWTH_MILESTONES.find(m => m > count) || GROWTH_MILESTONES[GROWTH_MILESTONES.length - 1];
+  const prevGrowthMilestone = thresholdReached ? event.threshold_hard : 0;
+  const growthPct = Math.min(100, Math.round(((count - prevGrowthMilestone) / (nextGrowthMilestone - prevGrowthMilestone)) * 100));
+
+  const launchPct = Math.min(100, Math.round((count / event.threshold_hard) * 100));
   const remaining = event.threshold_hard - count;
+
   return (
     <div className="w-full bg-gray-900 rounded-3xl p-6 space-y-4">
-      <p className="text-teal-300 text-xl font-black text-center">
-        Noch {remaining} bis zum vollen Start! 🚀
-      </p>
+
+      {thresholdReached ? (
+        <p className="text-teal-300 text-xl font-black text-center">
+          SaiHello Community Member 🎉
+        </p>
+      ) : (
+        <p className="text-teal-300 text-xl font-black text-center">
+          Noch {remaining} bis zum vollen Start! 🚀
+        </p>
+      )}
 
       <div className="flex justify-between items-end">
         <div>
           <p className="text-4xl font-black text-white tabular-nums">{count}</p>
-          <p className="text-gray-500 text-sm">von {event.threshold_hard}</p>
+          <p className="text-gray-500 text-sm">von {thresholdReached ? nextGrowthMilestone : event.threshold_hard}</p>
         </div>
-        <p className="text-3xl font-black text-teal-400">{pct}%</p>
+        <p className="text-3xl font-black text-teal-400">{thresholdReached ? growthPct : launchPct}%</p>
       </div>
 
-      <ProgressBar pct={pct} />
+      <ProgressBar pct={thresholdReached ? growthPct : launchPct} />
+
+      {thresholdReached && (
+        <p className="text-gray-500 text-xs text-center">
+          Nächstes Ziel: <span className="text-teal-400 font-semibold">{nextGrowthMilestone}</span> Community Members
+        </p>
+      )}
 
       {recentCount > 0 && (
         <p className="text-teal-400 text-sm text-center font-semibold">+{recentCount} in den letzten 48h 🔥</p>
