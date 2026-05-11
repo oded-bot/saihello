@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Search, PlusCircle, Star, TrendingUp, X, CalendarDays, MessageCircle } from 'lucide-react';
+import { Flame, Search, PlusCircle, Star, TrendingUp, X, CalendarDays, MessageCircle, Lightbulb, ChevronLeft, Send } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import useLanguage from '../../hooks/useLanguage';
 import api from '../../utils/api';
@@ -41,7 +41,189 @@ function groupByCountry(events) {
   return sorted;
 }
 
-function NextEventModal({ onClose, events, loading, onSelectEvent }) {
+function SuggestEventModal({ onClose }) {
+  const [step, setStep] = useState('form'); // form | verifying | confirm | reject_msg | done
+  const [rawName, setRawName] = useState('');
+  const [rawCity, setRawCity] = useState('');
+  const [rawDate, setRawDate] = useState('');
+  const [rawNotes, setRawNotes] = useState('');
+  const [suggestion, setSuggestion] = useState(null);
+  const [aiResult, setAiResult] = useState(null);
+  const [rejectMsg, setRejectMsg] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    if (!rawName.trim()) return;
+    setSubmitting(true);
+    setStep('verifying');
+    try {
+      const { data } = await api.post('/suggestions', { rawName, rawCity, rawDate, rawNotes });
+      setSuggestion(data.suggestion);
+      setAiResult(data.aiResult);
+      setStep('confirm');
+    } catch {
+      setStep('form');
+    } finally { setSubmitting(false); }
+  }
+
+  async function handleConfirm() {
+    setSubmitting(true);
+    try {
+      await api.post(`/suggestions/${suggestion.id}/confirm`);
+      setStep('done');
+    } catch {} finally { setSubmitting(false); }
+  }
+
+  async function handleReject() {
+    setSubmitting(true);
+    try {
+      await api.post(`/suggestions/${suggestion.id}/reject`, { message: rejectMsg });
+      setStep('done');
+    } catch {} finally { setSubmitting(false); }
+  }
+
+  const ai = aiResult;
+
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-white dark:bg-dark-card rounded-t-3xl w-full max-w-md shadow-2xl" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 flex items-center gap-3 border-b border-gray-100 dark:border-dark-separator">
+          {step !== 'form' && step !== 'done' && (
+            <button onClick={() => setStep('form')} className="text-gray-400"><ChevronLeft size={20} /></button>
+          )}
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white flex-1">
+            {step === 'form' && '💡 Veranstaltung vorschlagen'}
+            {step === 'verifying' && '🔍 KI prüft dein Event…'}
+            {step === 'confirm' && 'KI hat das Event gefunden'}
+            {step === 'reject_msg' && 'Nachricht an Admin'}
+            {step === 'done' && 'Danke für deinen Vorschlag!'}
+          </h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-dark-elevated flex items-center justify-center">
+            <X size={16} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+
+          {/* Step: Form */}
+          {step === 'form' && (
+            <>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Kennst du eine Veranstaltung, die noch nicht in der Liste ist? Schick uns deinen Vorschlag — die KI prüft und vervollständigt die Details.</p>
+              <input
+                placeholder="Name der Veranstaltung *"
+                value={rawName}
+                onChange={e => setRawName(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 dark:border-dark-separator rounded-xl text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
+              />
+              <input
+                placeholder="Stadt (optional)"
+                value={rawCity}
+                onChange={e => setRawCity(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 dark:border-dark-separator rounded-xl text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
+              />
+              <input
+                placeholder="Datum / Zeitraum (optional, z.B. August 2027)"
+                value={rawDate}
+                onChange={e => setRawDate(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 dark:border-dark-separator rounded-xl text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
+              />
+              <textarea
+                placeholder="Weitere Infos (optional)"
+                value={rawNotes}
+                onChange={e => setRawNotes(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2.5 border border-gray-200 dark:border-dark-separator rounded-xl text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white resize-none"
+              />
+              <button
+                onClick={handleSubmit}
+                disabled={!rawName.trim()}
+                className="w-full py-3 bg-teal-500 text-white rounded-2xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                <Send size={15} /> Vorschlag versenden
+              </button>
+            </>
+          )}
+
+          {/* Step: Verifying */}
+          {step === 'verifying' && (
+            <div className="flex flex-col items-center py-8 gap-4">
+              <div className="w-10 h-10 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gray-500 text-center">Die KI sucht im Internet nach deinem Event und prüft die Angaben…</p>
+            </div>
+          )}
+
+          {/* Step: Confirm */}
+          {step === 'confirm' && ai && (
+            <>
+              {ai.found ? (
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Die KI hat folgendes Event gefunden. Stimmt das?</p>
+                  <div className="bg-gray-50 dark:bg-dark-elevated rounded-2xl p-4 space-y-2">
+                    <p className="text-2xl text-center">{ai.emoji}</p>
+                    <p className="font-bold text-gray-900 dark:text-white text-center">{ai.name}</p>
+                    <p className="text-xs text-gray-500 text-center">{ai.city}{ai.date_text ? ` · ${ai.date_text}` : ''}</p>
+                    {ai.already_in_db && (
+                      <p className="text-xs text-amber-600 text-center font-medium">⚠ Dieses Event könnte bereits in der Liste sein</p>
+                    )}
+                    <div className="pt-1 text-xs text-gray-400 text-center">
+                      KI-Konfidenz: <span className="font-semibold text-gray-600 dark:text-gray-300">{ai.confidence === 'high' ? 'hoch' : ai.confidence === 'medium' ? 'mittel' : 'niedrig'}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={handleConfirm} disabled={submitting} className="flex-1 py-3 bg-teal-500 text-white rounded-2xl font-semibold text-sm">
+                      Ja, das ist es ✓
+                    </button>
+                    <button onClick={() => setStep('reject_msg')} className="flex-1 py-3 border border-gray-200 dark:border-dark-separator text-gray-600 dark:text-gray-400 rounded-2xl text-sm">
+                      Nicht ganz
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Die KI konnte dein Event leider nicht eindeutig im Internet finden. Du kannst dem Admin trotzdem eine Nachricht schicken.</p>
+                  <button onClick={() => setStep('reject_msg')} className="w-full py-3 bg-amber-500 text-white rounded-2xl font-semibold text-sm">
+                    Nachricht an Admin schicken
+                  </button>
+                </>
+              )}
+            </>
+          )}
+
+          {/* Step: Reject message */}
+          {step === 'reject_msg' && (
+            <>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Beschreibe dem Admin kurz das Event — er entscheidet dann, ob und wie es aufgenommen wird.</p>
+              <textarea
+                placeholder="Was wolltest du vorschlagen? Hast du einen Link oder weitere Infos?"
+                value={rejectMsg}
+                onChange={e => setRejectMsg(e.target.value)}
+                rows={4}
+                className="w-full px-3 py-2.5 border border-gray-200 dark:border-dark-separator rounded-xl text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white resize-none"
+              />
+              <button onClick={handleReject} disabled={submitting} className="w-full py-3 bg-teal-500 text-white rounded-2xl font-semibold text-sm flex items-center justify-center gap-2">
+                <Send size={15} /> An Admin senden
+              </button>
+            </>
+          )}
+
+          {/* Step: Done */}
+          {step === 'done' && (
+            <div className="flex flex-col items-center py-6 gap-3 text-center">
+              <span className="text-5xl">🎉</span>
+              <p className="font-bold text-gray-900 dark:text-white">Danke!</p>
+              <p className="text-sm text-gray-500">Dein Vorschlag wurde weitergeleitet. Der Admin prüft ihn und entscheidet über die Aufnahme.</p>
+              <button onClick={onClose} className="mt-2 text-teal-500 text-sm font-medium">Schließen</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NextEventModal({ onClose, events, loading, onSelectEvent, onSuggest }) {
   const [search, setSearch] = useState('');
   const filtered = search.trim()
     ? events.filter(ev => ev.name.toLowerCase().includes(search.toLowerCase()) || (ev.city || '').toLowerCase().includes(search.toLowerCase()))
@@ -96,6 +278,15 @@ function NextEventModal({ onClose, events, loading, onSelectEvent }) {
             ))}
           </div>
         )}
+        {/* Suggest button */}
+        <div className="px-6 pt-3 pb-2 border-t border-gray-100 dark:border-dark-separator">
+          <button
+            onClick={onSuggest}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-teal-300 dark:border-teal-700 text-teal-600 dark:text-teal-400 text-sm font-medium"
+          >
+            <Lightbulb size={15} /> Veranstaltung vorschlagen
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -112,6 +303,7 @@ export default function HomeScreen() {
   const [eventsLoading, setEventsLoading] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [tagline, setTagline] = useState(null);
+  const [showSuggestModal, setShowSuggestModal] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -298,7 +490,12 @@ export default function HomeScreen() {
           events={upcomingEvents}
           loading={eventsLoading}
           onSelectEvent={(id) => { setShowNextEventModal(false); navigate(`/tracker?event=${id}`); }}
+          onSuggest={() => { setShowNextEventModal(false); setShowSuggestModal(true); }}
         />
+      )}
+
+      {showSuggestModal && (
+        <SuggestEventModal onClose={() => setShowSuggestModal(false)} />
       )}}
 
       {/* Leaderboard */}

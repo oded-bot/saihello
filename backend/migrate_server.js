@@ -224,5 +224,32 @@ if (!isNullable) {
   console.log('✓ tracker_registrations: already nullable, cleaned up');
 }
 
+// ── 4. event_suggestions table ────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS event_suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    raw_name TEXT NOT NULL,
+    raw_city TEXT,
+    raw_date TEXT,
+    raw_notes TEXT,
+    ai_name TEXT,
+    ai_city TEXT,
+    ai_state TEXT,
+    ai_date_text TEXT,
+    ai_emoji TEXT,
+    ai_event_type TEXT,
+    ai_estimated_visitors TEXT,
+    ai_tagline TEXT,
+    ai_confidence TEXT,
+    ai_found INTEGER DEFAULT 0,
+    ai_already_in_db INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'pending_ai',
+    user_message TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`);
+console.log('✓ event_suggestions table');
+
 db.close();
 console.log('\nMigration complete.');

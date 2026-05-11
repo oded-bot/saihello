@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Users, MessageSquare, Flame, BarChart3, Search, Check, X, Shield, Trash2, ShieldCheck, UserCheck, Clock, CalendarDays, Plus, Wand2, Pencil } from 'lucide-react';
+import { ChevronLeft, Users, MessageSquare, Flame, BarChart3, Search, Check, X, Shield, Trash2, ShieldCheck, UserCheck, Clock, CalendarDays, Plus, Wand2, Pencil, Lightbulb } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import useLanguage from '../../hooks/useLanguage';
 import api from '../../utils/api';
@@ -18,6 +18,115 @@ function StatCard({ icon, label, value, color }) {
           <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+const STATUS_LABEL = {
+  pending_ai: { label: 'KI prüft…', color: 'bg-gray-100 text-gray-600' },
+  pending_user_confirm: { label: 'Wartet auf Nutzer', color: 'bg-amber-100 text-amber-700' },
+  user_confirmed: { label: 'Bestätigt ✓', color: 'bg-blue-100 text-blue-700' },
+  user_rejected: { label: 'Abgelehnt', color: 'bg-red-100 text-red-600' },
+  admin_accepted: { label: 'Angenommen ✓', color: 'bg-green-100 text-green-700' },
+  admin_declined: { label: 'Abgelehnt', color: 'bg-red-100 text-red-600' },
+};
+
+function SuggestionsTab() {
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { loadSuggestions(); }, []);
+
+  async function loadSuggestions() {
+    try {
+      const { data } = await api.get('/suggestions/admin/list');
+      setSuggestions(data);
+    } catch { toast.error('Vorschläge laden fehlgeschlagen'); }
+    finally { setLoading(false); }
+  }
+
+  async function handleAccept(id) {
+    try {
+      await api.post(`/suggestions/admin/${id}/accept`);
+      toast.success('Event in DB aufgenommen');
+      loadSuggestions();
+    } catch { toast.error('Fehler beim Annehmen'); }
+  }
+
+  async function handleDecline(id) {
+    if (!window.confirm('Vorschlag ablehnen?')) return;
+    try {
+      await api.post(`/suggestions/admin/${id}/decline`);
+      toast.success('Vorschlag abgelehnt');
+      loadSuggestions();
+    } catch { toast.error('Fehler beim Ablehnen'); }
+  }
+
+  const pending = suggestions.filter(s => s.status === 'user_confirmed');
+  const others = suggestions.filter(s => s.status !== 'user_confirmed');
+
+  return (
+    <div>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{suggestions.length} Vorschläge gesamt · {pending.length} warten auf Entscheidung</p>
+
+      {loading ? (
+        <div className="text-center py-8 text-gray-400 text-sm">Laden...</div>
+      ) : suggestions.length === 0 ? (
+        <p className="text-center py-8 text-gray-400 text-sm">Noch keine Vorschläge</p>
+      ) : (
+        <div className="space-y-3">
+          {pending.length > 0 && (
+            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Warten auf Entscheidung</p>
+          )}
+          {[...pending, ...others].map(s => {
+            const st = STATUS_LABEL[s.status] || STATUS_LABEL.pending_ai;
+            const name = s.ai_name || s.raw_name;
+            const city = s.ai_city || s.raw_city;
+            return (
+              <div key={s.id} className="bg-white dark:bg-dark-card border border-gray-100 dark:border-dark-separator rounded-xl p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm">{s.ai_emoji || '🎉'} {name}</p>
+                    <p className="text-xs text-gray-500">{city}{s.ai_date_text ? ` · ${s.ai_date_text}` : ''}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">von {s.user_name || 'Nutzer'}</p>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 ${st.color}`}>{st.label}</span>
+                </div>
+
+                {s.raw_name !== s.ai_name && s.ai_name && (
+                  <p className="text-xs text-gray-400">Ursprünglich: "{s.raw_name}"</p>
+                )}
+
+                {s.ai_event_type && (
+                  <div className="flex gap-2 text-xs text-gray-500">
+                    <span>Typ: <strong>{s.ai_event_type}</strong></span>
+                    <span>·</span>
+                    <span>KI: <strong>{s.ai_confidence || '—'}</strong></span>
+                    {s.ai_already_in_db ? <span className="text-amber-600 font-medium">⚠ möglicherweise bereits in DB</span> : null}
+                  </div>
+                )}
+
+                {s.user_message && (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">Nachricht: {s.user_message}</p>
+                  </div>
+                )}
+
+                {s.status === 'user_confirmed' && (
+                  <div className="flex gap-2">
+                    <button onClick={() => handleAccept(s.id)} className="flex-1 py-2 bg-teal-500 text-white rounded-lg text-xs font-medium">
+                      ✓ In DB aufnehmen
+                    </button>
+                    <button onClick={() => handleDecline(s.id)} className="flex-1 py-2 border border-gray-200 dark:border-dark-separator text-gray-600 dark:text-gray-400 rounded-lg text-xs">
+                      Ablehnen
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -379,6 +488,7 @@ export default function AdminPanel() {
     { key: 'users', label: t('adminUsers'), icon: <Users size={16} /> },
     { key: 'pending', label: t('adminPending'), icon: <Clock size={16} /> },
     { key: 'events', label: 'Events', icon: <CalendarDays size={16} /> },
+    { key: 'suggestions', label: 'Vorschläge', icon: <Lightbulb size={16} /> },
   ];
 
   return (
@@ -458,6 +568,9 @@ export default function AdminPanel() {
 
         {/* Events Tab */}
         {tab === 'events' && <EventsTab />}
+
+        {/* Suggestions Tab */}
+        {tab === 'suggestions' && <SuggestionsTab />}
 
         {/* Users / Pending Tab */}
         {(tab === 'users' || tab === 'pending') && (

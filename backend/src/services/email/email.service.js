@@ -117,4 +117,4 @@ async function sendVerificationEmail(email, code) {
   return sendMail(email, subject, html);
 }
 
-module.exports = { sendVerificationEmail };
+module.exports = { sendVerificationEmail, sendMail };

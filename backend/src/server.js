@@ -64,6 +64,7 @@ app.use('/api/admin', require('./services/admin/admin.routes'));
 app.use('/api/yesterday', require('./services/yesterday/yesterday.routes'));
 app.use('/api/tracker', require('./services/tracker/tracker.routes'));
 app.use('/api/events', require('./services/events/events.routes'));
+app.use('/api/suggestions', require('./services/suggestions/suggestions.routes'));
 
 // Health Check
 app.get('/api/health', (req, res) => {
