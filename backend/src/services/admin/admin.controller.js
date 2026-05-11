@@ -302,15 +302,23 @@ async function createEvent(req, res) {
 
     const BASE = { table: { soft: 75, hard: 150 }, street: { soft: 50, hard: 100 }, camping: { soft: 100, hard: 200 }, mixed: { soft: 75, hard: 150 } };
 
+    function toSlug(n) {
+      return n.toLowerCase()
+        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+    let slug = toSlug(name.trim()), finalSlug = slug, i = 2;
+    while (db.prepare('SELECT id FROM upcoming_events WHERE slug = ?').get(finalSlug)) finalSlug = `${slug}-${i++}`;
+
     // Insert with provided or default values first
     const initialType = event_type || 'mixed';
     const base = BASE[initialType];
     const result = db.prepare(`
-      INSERT INTO upcoming_events (name, city, state, date_text, emoji, event_type, estimated_visitors, sort_order, threshold_soft, threshold_hard)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO upcoming_events (name, city, state, date_text, emoji, event_type, estimated_visitors, sort_order, threshold_soft, threshold_hard, slug)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.trim(), city?.trim() || null, state?.trim() || null, date_text?.trim() || null,
            emoji?.trim() || '🎉', initialType, estimated_visitors != null ? String(estimated_visitors) : null,
-           sort_order ?? 999, base.soft, base.hard);
+           sort_order ?? 999, base.soft, base.hard, finalSlug);
 
     const id = result.lastInsertRowid;
 

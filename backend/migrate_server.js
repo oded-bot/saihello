@@ -224,6 +224,23 @@ if (!isNullable) {
   console.log('✓ tracker_registrations: already nullable, cleaned up');
 }
 
+// ── 3a. upcoming_events.slug column ───────────────────────────────────────────
+try { db.exec('ALTER TABLE upcoming_events ADD COLUMN slug TEXT UNIQUE'); } catch(e) {}
+
+function toSlug(name) {
+  return name.toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+const eventsWithoutSlug = db.prepare("SELECT id, name FROM upcoming_events WHERE slug IS NULL OR slug = ''").all();
+for (const ev of eventsWithoutSlug) {
+  let slug = toSlug(ev.name);
+  let final = slug, i = 2;
+  while (db.prepare('SELECT id FROM upcoming_events WHERE slug = ? AND id != ?').get(final, ev.id)) final = `${slug}-${i++}`;
+  db.prepare('UPDATE upcoming_events SET slug = ? WHERE id = ?').run(final, ev.id);
+}
+if (eventsWithoutSlug.length) console.log(`✓ Slugs generiert für ${eventsWithoutSlug.length} Events`);
+
 // ── 3b. profiles.badges column ────────────────────────────────────────────────
 try { db.exec('ALTER TABLE profiles ADD COLUMN badges TEXT'); } catch(e) {}
 

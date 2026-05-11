@@ -16,7 +16,7 @@ class MapErrorBoundary extends Component {
     return this.props.children;
   }
 }
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import useAuthStore from './context/authStore';
 import useDarkMode from './hooks/useDarkMode';
 import { connectSocket } from './utils/socket';
@@ -80,6 +80,11 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+function EventSlugPage({ token }) {
+  const { slug } = useParams();
+  return <TrackerPage slug={slug} isLoggedIn={!!token} onGoToApp={() => window.location.href = '/home'} />;
+}
+
 function AdminRoute({ children }) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
@@ -133,6 +138,7 @@ export default function App() {
             <TrackerPage isLoggedIn={!!token} onGoToApp={() => window.location.href = '/home'} />
           </ProtectedRoute>
         } />
+        <Route path="/e/:slug" element={<EventSlugPage token={token} />} />
 
         {/* Protected */}
         <Route path="/home" element={

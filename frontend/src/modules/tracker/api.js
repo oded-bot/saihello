@@ -12,6 +12,12 @@ export async function getFeaturedEvent() {
   return res.json();
 }
 
+export async function getEventBySlug(slug) {
+  const res = await fetch(`${CONFIG.apiBaseUrl}/tracker/event/${slug}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 export async function getUpcomingEvent(id) {
   const res = await fetch(`${CONFIG.apiBaseUrl}/tracker/upcoming/${id}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

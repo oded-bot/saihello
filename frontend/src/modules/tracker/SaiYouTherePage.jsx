@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CONFIG from './config';
-import { getFeaturedEvent, getUpcomingActive, registerForUpcoming } from './api';
+import { getFeaturedEvent, getEventBySlug, getUpcomingActive, registerForUpcoming } from './api';
 import { formatEventDate, getRefFromUrl } from './utils';
 import MilestoneCelebration from './components/MilestoneCelebration';
 import EventCountdown from './components/EventCountdown';
@@ -54,7 +54,7 @@ function AppLiveScreen({ event, isLoggedIn, onGoToApp }) {
   );
 }
 
-export default function SaiYouTherePage({ isLoggedIn, onGoToApp }) {
+export default function SaiYouTherePage({ isLoggedIn, onGoToApp, slug }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
@@ -75,6 +75,11 @@ export default function SaiYouTherePage({ isLoggedIn, onGoToApp }) {
       const interval = setInterval(() => loadUpcoming(upcomingEventId), 30000);
       return () => clearInterval(interval);
     }
+    if (slug) {
+      loadBySlug(slug);
+      const interval = setInterval(() => loadBySlug(slug), 30000);
+      return () => clearInterval(interval);
+    }
     load();
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
@@ -93,6 +98,14 @@ export default function SaiYouTherePage({ isLoggedIn, onGoToApp }) {
     finally { setLoading(false); }
   }
 
+  async function loadBySlug(s) {
+    try {
+      const d = await getEventBySlug(s);
+      setData(d);
+    } catch (e) {}
+    finally { setLoading(false); }
+  }
+
   async function loadUpcoming(id) {
     try {
       const d = await getUpcomingActive(id);
@@ -106,7 +119,7 @@ export default function SaiYouTherePage({ isLoggedIn, onGoToApp }) {
     setSubmitting(true);
     try {
       let result;
-      if (upcomingEventId) {
+      if (upcomingEventId || slug) {
         result = await registerForUpcoming({
           name, email, city,
           upcomingEventId: data.event.id,

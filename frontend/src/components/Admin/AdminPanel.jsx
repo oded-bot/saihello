@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Users, MessageSquare, Flame, BarChart3, Search, Check, X, Shield, Trash2, ShieldCheck, UserCheck, Clock, CalendarDays, Plus, Wand2, Pencil, Lightbulb } from 'lucide-react';
+import { ChevronLeft, Users, MessageSquare, Flame, BarChart3, Search, Check, X, Shield, Trash2, ShieldCheck, UserCheck, Clock, CalendarDays, Plus, Wand2, Pencil, Lightbulb, Link } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import useLanguage from '../../hooks/useLanguage';
 import api from '../../utils/api';
@@ -402,6 +402,11 @@ function EventsTab() {
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${TYPE_COLOR[ev.event_type] || TYPE_COLOR.mixed}`}>
                     {ev.event_type}
                   </span>
+                  {ev.slug && (
+                    <button type="button" onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(`${window.location.origin}/e/${ev.slug}`); toast.success('Link kopiert!'); }} className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100 transition" title={`/e/${ev.slug}`}>
+                      <Link size={14} />
+                    </button>
+                  )}
                   <button onClick={() => startEdit(ev)} className="p-1.5 bg-gray-50 dark:bg-dark-elevated text-gray-500 rounded-lg hover:bg-gray-100 transition">
                     <Pencil size={14} />
                   </button>
