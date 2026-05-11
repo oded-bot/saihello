@@ -7,5 +7,5 @@ export const FEATURES = {
   heatmap: false,
   nextEvent: true,
   trackerActive: true,
-  preEventMode: true,
+  preEventMode: false,
 };
