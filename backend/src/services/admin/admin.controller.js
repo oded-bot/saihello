@@ -309,7 +309,7 @@ async function createEvent(req, res) {
       INSERT INTO upcoming_events (name, city, state, date_text, emoji, event_type, estimated_visitors, sort_order, threshold_soft, threshold_hard)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.trim(), city?.trim() || null, state?.trim() || null, date_text?.trim() || null,
-           emoji?.trim() || '🎉', initialType, estimated_visitors?.trim() || null,
+           emoji?.trim() || '🎉', initialType, estimated_visitors != null ? String(estimated_visitors) : null,
            sort_order ?? 999, base.soft, base.hard);
 
     const id = result.lastInsertRowid;
