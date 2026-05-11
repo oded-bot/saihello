@@ -14,36 +14,85 @@ const EVENT_TYPE_LABEL = {
   mixed:   'Gemischt',
 };
 
+const GERMAN_STATES = new Set([
+  'Bayern','NRW','Baden-Württemberg','Hamburg','Berlin','Brandenburg',
+  'Bremen','Mecklenburg-Vorp.','Niedersachsen','Rheinland-Pfalz',
+  'Sachsen','Sachsen-Anhalt','Schleswig-Holstein','Thüringen','Hessen','Saarland',
+]);
+
+function getCountry(ev) {
+  if (!ev.state) return 'Sonstige';
+  return GERMAN_STATES.has(ev.state) ? 'Deutschland' : ev.state;
+}
+
+function groupByCountry(events) {
+  const map = new Map();
+  events.forEach(ev => {
+    const country = getCountry(ev);
+    if (!map.has(country)) map.set(country, []);
+    map.get(country).push(ev);
+  });
+  // Deutschland first, then alphabetical
+  const sorted = [...map.entries()].sort(([a], [b]) => {
+    if (a === 'Deutschland') return -1;
+    if (b === 'Deutschland') return 1;
+    return a.localeCompare(b, 'de');
+  });
+  return sorted;
+}
+
 function NextEventModal({ onClose, events, loading, onSelectEvent }) {
+  const [search, setSearch] = useState('');
+  const filtered = search.trim()
+    ? events.filter(ev => ev.name.toLowerCase().includes(search.toLowerCase()) || (ev.city || '').toLowerCase().includes(search.toLowerCase()))
+    : events;
+  const groups = groupByCountry(filtered);
+
   return (
     <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-white dark:bg-dark-card rounded-t-3xl w-full max-w-md p-6 shadow-2xl" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">📅 Nächste Events</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-dark-elevated flex items-center justify-center">
-            <X size={16} className="text-gray-500" />
-          </button>
+      <div className="bg-white dark:bg-dark-card rounded-t-3xl w-full max-w-md shadow-2xl" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }} onClick={e => e.stopPropagation()}>
+        <div className="px-6 pt-6 pb-3">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">📅 Nächste Events</h2>
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-dark-elevated flex items-center justify-center">
+              <X size={16} className="text-gray-500" />
+            </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Event oder Stadt suchen..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-100 dark:bg-dark-elevated rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none"
+          />
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">SaiHello ist dabei — sei es auch.</p>
         {loading ? (
           <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" /></div>
         ) : (
-          <div className="space-y-3 overflow-y-auto max-h-[60vh]">
-            {events.map(ev => (
-              <button
-                key={ev.id}
-                onClick={() => onSelectEvent(ev.id)}
-                className="w-full flex items-center gap-4 bg-gray-50 dark:bg-dark-elevated rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
-              >
-                <span className="text-3xl">{ev.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 dark:text-white text-sm truncate">{ev.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{ev.date_text} · {ev.city}</p>
+          <div className="overflow-y-auto max-h-[65vh] px-6 pb-4">
+            {groups.length === 0 && <p className="text-center text-gray-400 text-sm py-8">Keine Events gefunden</p>}
+            {groups.map(([country, evs]) => (
+              <div key={country} className="mb-4">
+                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">{country}</p>
+                <div className="space-y-2">
+                  {evs.map(ev => (
+                    <button
+                      key={ev.id}
+                      onClick={() => onSelectEvent(ev.id)}
+                      className="w-full flex items-center gap-3 bg-gray-50 dark:bg-dark-elevated rounded-2xl p-3 text-left active:scale-[0.98] transition-transform"
+                    >
+                      <span className="text-2xl">{ev.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{ev.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ev.date_text} · {ev.city}</p>
+                      </div>
+                      <span className="text-[10px] font-semibold text-tinder-pink bg-pink-50 dark:bg-pink-900/20 px-2 py-0.5 rounded-full shrink-0">
+                        {EVENT_TYPE_LABEL[ev.event_type] || ev.event_type}
+                      </span>
+                    </button>
+                  ))}
                 </div>
-                <span className="text-xs font-semibold text-tinder-pink bg-pink-50 dark:bg-pink-900/20 px-2 py-1 rounded-full shrink-0">
-                  {EVENT_TYPE_LABEL[ev.event_type] || ev.event_type}
-                </span>
-              </button>
+              </div>
             ))}
           </div>
         )}
