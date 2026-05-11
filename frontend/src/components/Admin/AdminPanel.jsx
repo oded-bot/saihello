@@ -395,7 +395,7 @@ function EventsTab() {
                   {ev.is_featured ? (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">★ Featured</span>
                   ) : (
-                    <button onClick={() => setFeatured(ev.id, ev.name)} className="text-[10px] px-1.5 py-0.5 rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-amber-400 hover:text-amber-500 transition">
+                    <button type="button" onClick={e => { e.stopPropagation(); setFeatured(ev.id, ev.name); }} className="text-[10px] px-1.5 py-0.5 rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-amber-400 hover:text-amber-500 transition">
                       ★ setzen
                     </button>
                   )}
