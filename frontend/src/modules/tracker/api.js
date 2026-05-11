@@ -6,6 +6,12 @@ export async function getActiveEvent() {
   return res.json();
 }
 
+export async function getFeaturedEvent() {
+  const res = await fetch(`${CONFIG.apiBaseUrl}/tracker/featured`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 export async function getUpcomingEvent(id) {
   const res = await fetch(`${CONFIG.apiBaseUrl}/tracker/upcoming/${id}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

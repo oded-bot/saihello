@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CONFIG from './config';
-import { getActiveEvent, getUpcomingActive, registerForUpcoming } from './api';
+import { getFeaturedEvent, getUpcomingActive, registerForUpcoming } from './api';
 import { formatEventDate, getRefFromUrl } from './utils';
 import MilestoneCelebration from './components/MilestoneCelebration';
 import EventCountdown from './components/EventCountdown';
@@ -87,7 +87,7 @@ export default function SaiYouTherePage({ isLoggedIn, onGoToApp }) {
 
   async function load() {
     try {
-      const d = await getActiveEvent();
+      const d = await getFeaturedEvent();
       setData(d);
     } catch (e) {}
     finally { setLoading(false); }

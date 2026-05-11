@@ -6,6 +6,6 @@ export const FEATURES = {
   yesterday: true,
   heatmap: false,
   nextEvent: true,
-  trackerActive: false,
+  trackerActive: true,
   preEventMode: false,
 };
