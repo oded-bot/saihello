@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Users, MessageSquare, Flame, BarChart3, Search, Check, X, Shield, Trash2, ShieldCheck, UserCheck, Clock } from 'lucide-react';
+import { ChevronLeft, Users, MessageSquare, Flame, BarChart3, Search, Check, X, Shield, Trash2, ShieldCheck, UserCheck, Clock, CalendarDays, Plus, Wand2, Pencil } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import useLanguage from '../../hooks/useLanguage';
 import api from '../../utils/api';
@@ -18,6 +18,237 @@ function StatCard({ icon, label, value, color }) {
           <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+const EVENT_TYPES = [
+  { value: 'table',   label: 'Tisch/Zelt (Volksfest)',       emoji: '🍺' },
+  { value: 'street',  label: 'Straßenfest / Karneval',       emoji: '🎭' },
+  { value: 'camping', label: 'Festival / Camping',           emoji: '🎪' },
+  { value: 'mixed',   label: 'Gemischt / Sonstiges',         emoji: '🎡' },
+];
+
+const EMPTY_FORM = { name: '', city: '', state: '', date_text: '', emoji: '🎉', event_type: 'mixed', estimated_visitors: '', sort_order: '' };
+
+function EventsTab() {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [classifying, setClassifying] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => { loadEvents(); }, []);
+
+  async function loadEvents() {
+    try {
+      const { data } = await api.get('/admin/events');
+      setEvents(data);
+    } catch { toast.error('Events laden fehlgeschlagen'); }
+    finally { setLoading(false); }
+  }
+
+  async function classify() {
+    if (!form.name.trim()) return toast.error('Bitte zuerst den Namen eingeben');
+    setClassifying(true);
+    try {
+      const { data } = await api.post('/admin/events/classify', { name: form.name, city: form.city });
+      setForm(f => ({ ...f, event_type: data.event_type }));
+      toast.success(`Klassifiziert: ${data.event_type} (${data.confidence}) — ${data.reason}`);
+    } catch { toast.error('Klassifizierung fehlgeschlagen'); }
+    finally { setClassifying(false); }
+  }
+
+  async function save() {
+    if (!form.name.trim()) return toast.error('Name erforderlich');
+    setSaving(true);
+    try {
+      if (editId) {
+        await api.patch(`/admin/events/${editId}`, form);
+        toast.success('Event aktualisiert');
+      } else {
+        await api.post('/admin/events', form);
+        toast.success('Event angelegt');
+      }
+      setShowForm(false);
+      setEditId(null);
+      setForm(EMPTY_FORM);
+      loadEvents();
+    } catch { toast.error('Speichern fehlgeschlagen'); }
+    finally { setSaving(false); }
+  }
+
+  async function deleteEvent(id, name) {
+    if (!window.confirm(`"${name}" wirklich löschen?`)) return;
+    try {
+      await api.delete(`/admin/events/${id}`);
+      toast.success('Event gelöscht');
+      loadEvents();
+    } catch { toast.error('Löschen fehlgeschlagen'); }
+  }
+
+  function startEdit(ev) {
+    setForm({
+      name: ev.name || '',
+      city: ev.city || '',
+      state: ev.state || '',
+      date_text: ev.date_text || '',
+      emoji: ev.emoji || '🎉',
+      event_type: ev.event_type || 'mixed',
+      estimated_visitors: ev.estimated_visitors || '',
+      sort_order: ev.sort_order ?? '',
+    });
+    setEditId(ev.id);
+    setShowForm(true);
+  }
+
+  const filtered = events.filter(e =>
+    e.name.toLowerCase().includes(search.toLowerCase()) ||
+    (e.city || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const TYPE_COLOR = { table: 'bg-amber-100 text-amber-700', street: 'bg-purple-100 text-purple-700', camping: 'bg-green-100 text-green-700', mixed: 'bg-blue-100 text-blue-700' };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-gray-500">{events.length} Events</p>
+        <button
+          onClick={() => { setForm(EMPTY_FORM); setEditId(null); setShowForm(true); }}
+          className="flex items-center gap-1.5 px-3 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium"
+        >
+          <Plus size={15} /> Neues Event
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-separator rounded-xl p-4 mb-4 space-y-3">
+          <p className="font-semibold text-gray-900 dark:text-white text-sm">{editId ? 'Event bearbeiten' : 'Neues Event'}</p>
+
+          <input
+            placeholder="Name *"
+            value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
+          />
+
+          <div className="flex gap-2">
+            <input
+              placeholder="Stadt"
+              value={form.city}
+              onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+              className="flex-1 px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
+            />
+            <input
+              placeholder="Emoji"
+              value={form.emoji}
+              onChange={e => setForm(f => ({ ...f, emoji: e.target.value }))}
+              className="w-16 px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white text-center"
+            />
+          </div>
+
+          <input
+            placeholder="Datum (z.B. 08.02.2027)"
+            value={form.date_text}
+            onChange={e => setForm(f => ({ ...f, date_text: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
+          />
+
+          <input
+            placeholder="Besucher (z.B. 1.000.000+)"
+            value={form.estimated_visitors}
+            onChange={e => setForm(f => ({ ...f, estimated_visitors: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
+          />
+
+          {/* Event Type + AI Button */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <select
+                value={form.event_type}
+                onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}
+                className="flex-1 px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
+              >
+                {EVENT_TYPES.map(t => (
+                  <option key={t.value} value={t.value}>{t.emoji} {t.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={classify}
+                disabled={classifying}
+                className="flex items-center gap-1.5 px-3 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+              >
+                <Wand2 size={14} />
+                {classifying ? 'KI...' : 'KI klassifizieren'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">Tipp: Name + Stadt eingeben, dann "KI klassifizieren" klicken</p>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => { setShowForm(false); setEditId(null); }}
+              className="flex-1 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm text-gray-600 dark:text-gray-400"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="flex-1 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+            >
+              {saving ? 'Speichern...' : editId ? 'Aktualisieren' : 'Anlegen'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="relative mb-3">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Event suchen..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-separator rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none"
+        />
+      </div>
+
+      {loading ? (
+        <div className="text-center py-8 text-gray-400 text-sm">Laden...</div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(ev => (
+            <div key={ev.id} className="bg-white dark:bg-dark-card border border-gray-100 dark:border-dark-separator rounded-xl p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-2xl flex-shrink-0">{ev.emoji}</span>
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{ev.name}</p>
+                    <p className="text-xs text-gray-500 truncate">{ev.city}{ev.date_text ? ` · ${ev.date_text}` : ''}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${TYPE_COLOR[ev.event_type] || TYPE_COLOR.mixed}`}>
+                    {ev.event_type}
+                  </span>
+                  <button onClick={() => startEdit(ev)} className="p-1.5 bg-gray-50 dark:bg-dark-elevated text-gray-500 rounded-lg hover:bg-gray-100 transition">
+                    <Pencil size={14} />
+                  </button>
+                  <button onClick={() => deleteEvent(ev.id, ev.name)} className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && <p className="text-center text-gray-400 py-8 text-sm">Keine Events gefunden</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -105,6 +336,7 @@ export default function AdminPanel() {
     { key: 'dashboard', label: t('adminDashboard'), icon: <BarChart3 size={16} /> },
     { key: 'users', label: t('adminUsers'), icon: <Users size={16} /> },
     { key: 'pending', label: t('adminPending'), icon: <Clock size={16} /> },
+    { key: 'events', label: 'Events', icon: <CalendarDays size={16} /> },
   ];
 
   return (
@@ -181,6 +413,9 @@ export default function AdminPanel() {
             />
           </div>
         )}
+
+        {/* Events Tab */}
+        {tab === 'events' && <EventsTab />}
 
         {/* Users / Pending Tab */}
         {(tab === 'users' || tab === 'pending') && (

@@ -284,6 +284,144 @@ function getMessages(req, res) {
   }
 }
 
+// ── Event Management ────────────────────────────────────────────────────────
+
+function getEvents(req, res) {
+  try {
+    const events = db.prepare('SELECT * FROM upcoming_events ORDER BY sort_order, name').all();
+    res.json(events);
+  } catch (err) {
+    res.status(500).json({ error: 'Events laden fehlgeschlagen' });
+  }
+}
+
+function createEvent(req, res) {
+  try {
+    const { name, city, state, date_text, emoji, event_type, estimated_visitors, sort_order } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'Name erforderlich' });
+
+    const BASE = { table: { soft: 75, hard: 150 }, street: { soft: 50, hard: 100 }, camping: { soft: 100, hard: 200 }, mixed: { soft: 75, hard: 150 } };
+    const base = BASE[event_type] || BASE.mixed;
+
+    const result = db.prepare(`
+      INSERT INTO upcoming_events (name, city, state, date_text, emoji, event_type, estimated_visitors, sort_order, threshold_soft, threshold_hard)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(name.trim(), city?.trim() || null, state?.trim() || null, date_text?.trim() || null,
+           emoji?.trim() || '🎉', event_type || 'mixed', estimated_visitors?.trim() || null,
+           sort_order ?? 999, base.soft, base.hard);
+
+    const event = db.prepare('SELECT * FROM upcoming_events WHERE id = ?').get(result.lastInsertRowid);
+    res.json(event);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Event anlegen fehlgeschlagen' });
+  }
+}
+
+function updateEvent(req, res) {
+  try {
+    const { id } = req.params;
+    const { name, city, state, date_text, emoji, event_type, estimated_visitors, sort_order, is_tracker_active } = req.body;
+
+    const event = db.prepare('SELECT * FROM upcoming_events WHERE id = ?').get(id);
+    if (!event) return res.status(404).json({ error: 'Event nicht gefunden' });
+
+    const fields = [];
+    const vals = [];
+    if (name !== undefined) { fields.push('name = ?'); vals.push(name.trim()); }
+    if (city !== undefined) { fields.push('city = ?'); vals.push(city.trim() || null); }
+    if (state !== undefined) { fields.push('state = ?'); vals.push(state.trim() || null); }
+    if (date_text !== undefined) { fields.push('date_text = ?'); vals.push(date_text.trim() || null); }
+    if (emoji !== undefined) { fields.push('emoji = ?'); vals.push(emoji.trim() || '🎉'); }
+    if (event_type !== undefined) {
+      const BASE = { table: { soft: 75, hard: 150 }, street: { soft: 50, hard: 100 }, camping: { soft: 100, hard: 200 }, mixed: { soft: 75, hard: 150 } };
+      const base = BASE[event_type] || BASE.mixed;
+      fields.push('event_type = ?', 'threshold_soft = ?', 'threshold_hard = ?');
+      vals.push(event_type, base.soft, base.hard);
+    }
+    if (estimated_visitors !== undefined) { fields.push('estimated_visitors = ?'); vals.push(estimated_visitors.trim() || null); }
+    if (sort_order !== undefined) { fields.push('sort_order = ?'); vals.push(Number(sort_order)); }
+    if (is_tracker_active !== undefined) { fields.push('is_tracker_active = ?'); vals.push(is_tracker_active ? 1 : 0); }
+
+    if (fields.length === 0) return res.json({ success: true });
+
+    db.prepare(`UPDATE upcoming_events SET ${fields.join(', ')} WHERE id = ?`).run(...vals, id);
+    res.json(db.prepare('SELECT * FROM upcoming_events WHERE id = ?').get(id));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Event aktualisieren fehlgeschlagen' });
+  }
+}
+
+function deleteEvent(req, res) {
+  try {
+    const { id } = req.params;
+    db.prepare('DELETE FROM upcoming_events WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Event löschen fehlgeschlagen' });
+  }
+}
+
+async function classifyEvent(req, res) {
+  const { name, city } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name erforderlich' });
+
+  const GEMINI_KEY = process.env.GEMINI_KEY;
+  if (!GEMINI_KEY) return res.status(500).json({ error: 'Kein Gemini API Key konfiguriert' });
+
+  const prompt = `Du bist ein Event-Klassifizierungs-Assistent.
+
+Klassifiziere das folgende Event in genau eine der vier Kategorien:
+- "table": Volksfest, Bierzelt-Event, Rummel mit festen Tischen/Zelten (z.B. Oktoberfest, Cannstatter Volksfest)
+- "street": Straßenfest, Karneval, Parade, Rosenmontagszug, CSD, Stadtfest ohne Zelte
+- "camping": Musikfestival mit Campingbereich (z.B. Rock am Ring, Wacken, Hurricane)
+- "mixed": Mischform — Stadtfeste, Hafengeburtstag, Seefeste, Events die nicht klar in die anderen passen
+
+Event: "${name.trim()}"${city ? ` in ${city.trim()}` : ''}
+
+Antworte NUR mit einem JSON-Objekt, keine Erklärung:
+{"event_type": "table"|"street"|"camping"|"mixed", "confidence": "high"|"medium"|"low", "reason": "kurze Begründung auf Deutsch"}`;
+
+  const https = require('https');
+  const body = JSON.stringify({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { maxOutputTokens: 128, temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } }
+  });
+
+  try {
+    const result = await new Promise((resolve, reject) => {
+      const req2 = https.request({
+        hostname: 'generativelanguage.googleapis.com',
+        path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      }, (r) => {
+        const chunks = [];
+        r.on('data', c => chunks.push(c));
+        r.on('end', () => {
+          try {
+            const data = JSON.parse(Buffer.concat(chunks).toString());
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            let text = '';
+            for (const p of parts) { if (p.text && !p.thought) text = p.text; }
+            const match = text.match(/\{[\s\S]*\}/);
+            if (!match) throw new Error('No JSON in response');
+            resolve(JSON.parse(match[0]));
+          } catch (e) { reject(e); }
+        });
+      });
+      req2.on('error', reject);
+      req2.write(body);
+      req2.end();
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('Classify error:', err);
+    res.status(500).json({ error: 'Klassifizierung fehlgeschlagen' });
+  }
+}
+
 module.exports = {
   getStats,
   getUsers,
@@ -294,4 +432,9 @@ module.exports = {
   getOffers,
   getMatches,
   getMessages,
+  getEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  classifyEvent,
 };

@@ -19,4 +19,11 @@ router.get('/offers', controller.getOffers);
 router.get('/matches', controller.getMatches);
 router.get('/messages', controller.getMessages);
 
+// Event management
+router.get('/events', controller.getEvents);
+router.post('/events', controller.createEvent);
+router.patch('/events/:id', controller.updateEvent);
+router.delete('/events/:id', controller.deleteEvent);
+router.post('/events/classify', controller.classifyEvent);
+
 module.exports = router;
