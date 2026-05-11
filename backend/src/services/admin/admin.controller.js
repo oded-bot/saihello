@@ -408,7 +408,7 @@ function updateEvent(req, res) {
       fields.push('event_type = ?', 'threshold_soft = ?', 'threshold_hard = ?');
       vals.push(event_type, base.soft, base.hard);
     }
-    if (estimated_visitors !== undefined) { fields.push('estimated_visitors = ?'); vals.push(estimated_visitors.trim() || null); }
+    if (estimated_visitors !== undefined) { fields.push('estimated_visitors = ?'); vals.push(estimated_visitors != null ? String(estimated_visitors) : null); }
     if (sort_order !== undefined) { fields.push('sort_order = ?'); vals.push(Number(sort_order)); }
     if (is_tracker_active !== undefined) { fields.push('is_tracker_active = ?'); vals.push(is_tracker_active ? 1 : 0); }
     if (req.body.tagline !== undefined) { fields.push('tagline = ?'); vals.push(req.body.tagline || null); }
