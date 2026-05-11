@@ -513,4 +513,5 @@ module.exports = {
   updateEvent,
   deleteEvent,
   classifyEvent,
+  generateTagline,
 };
