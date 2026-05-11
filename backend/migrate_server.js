@@ -12,7 +12,9 @@ try { db.exec('ALTER TABLE tracker_registrations ADD COLUMN upcoming_event_id IN
 console.log('✓ tracker_registrations: upcoming_event_id');
 
 // 3. Make event_id nullable (recreate table)
-const hasNullable = db.prepare("SELECT COUNT(*) as c FROM pragma_table_info('tracker_registrations') WHERE name='event_id' AND notnull=0").get().c;
+const cols = db.prepare("PRAGMA table_info(tracker_registrations)").all();
+const eventIdCol = cols.find(c => c.name === 'event_id');
+const hasNullable = eventIdCol && eventIdCol.notnull === 0;
 if (!hasNullable) {
   db.exec(`
     PRAGMA foreign_keys=OFF;
