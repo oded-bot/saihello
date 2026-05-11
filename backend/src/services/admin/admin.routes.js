@@ -26,5 +26,6 @@ router.patch('/events/:id', controller.updateEvent);
 router.delete('/events/:id', controller.deleteEvent);
 router.post('/events/classify', controller.classifyEvent);
 router.post('/events/tagline', controller.generateTagline);
+router.post('/events/:id/feature', controller.setFeaturedEvent);
 
 module.exports = router;

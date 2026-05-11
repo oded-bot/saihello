@@ -207,4 +207,47 @@ function registerForUpcoming(req, res) {
   }
 }
 
-module.exports = { getActive, register, getUpcomingEvent, getUpcomingActive, registerForUpcoming };
+function getFeatured(req, res) {
+  try {
+    const event = db.prepare('SELECT * FROM upcoming_events WHERE is_featured = 1 LIMIT 1').get();
+    if (!event) return res.json({ active: false });
+
+    const count = db.prepare('SELECT COUNT(*) as cnt FROM tracker_registrations WHERE upcoming_event_id = ?').get(event.id).cnt;
+    const recentCount = db.prepare(`
+      SELECT COUNT(*) as cnt FROM tracker_registrations
+      WHERE upcoming_event_id = ? AND created_at >= datetime('now', '-48 hours')
+    `).get(event.id).cnt;
+    const recentNames = db.prepare(`
+      SELECT name FROM tracker_registrations
+      WHERE upcoming_event_id = ? ORDER BY created_at DESC LIMIT 6
+    `).all(event.id).map(r => r.name.split(' ')[0]);
+    const cities = db.prepare(`
+      SELECT city, COUNT(*) as cnt FROM tracker_registrations
+      WHERE upcoming_event_id = ? AND city IS NOT NULL AND city != ''
+      GROUP BY city ORDER BY cnt DESC LIMIT 8
+    `).all(event.id);
+
+    const thresholdHard = event.threshold_hard || 150;
+    const thresholdSoft = event.threshold_soft || 75;
+    const pct = count / thresholdHard;
+    const phase = pct < 0.15 ? 1 : pct < 0.70 ? 2 : 3;
+    const nextMilestone = MILESTONES.find(m => m > count) || null;
+
+    res.json({
+      active: true,
+      event: { ...event, threshold_hard: thresholdHard, threshold_soft: thresholdSoft },
+      count,
+      recentCount,
+      recentNames,
+      cities,
+      phase,
+      nextMilestone,
+      thresholdReached: count >= thresholdHard,
+      softThresholdReached: count >= thresholdSoft,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+}
+
+module.exports = { getActive, register, getUpcomingEvent, getUpcomingActive, registerForUpcoming, getFeatured };

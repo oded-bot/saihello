@@ -333,7 +333,7 @@ export default function HomeScreen() {
 
   async function loadTagline() {
     try {
-      const { data } = await api.get('/tracker/active');
+      const { data } = await api.get('/tracker/featured');
       if (data?.event?.tagline) setTagline(data.event.tagline);
     } catch (err) {}
   }

@@ -227,6 +227,15 @@ if (!isNullable) {
 // ── 3b. profiles.badges column ────────────────────────────────────────────────
 try { db.exec('ALTER TABLE profiles ADD COLUMN badges TEXT'); } catch(e) {}
 
+// ── 3c. upcoming_events.is_featured column ────────────────────────────────────
+try { db.exec('ALTER TABLE upcoming_events ADD COLUMN is_featured INTEGER DEFAULT 0'); } catch(e) {}
+// Set Oktoberfest as default featured if none set yet
+const hasFeatured = db.prepare('SELECT COUNT(*) as c FROM upcoming_events WHERE is_featured = 1').get().c;
+if (!hasFeatured) {
+  db.prepare('UPDATE upcoming_events SET is_featured = 1 WHERE id = 1').run();
+  console.log('✓ Oktoberfest als Featured Event gesetzt');
+}
+
 // ── 4. event_suggestions table ────────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS event_suggestions (

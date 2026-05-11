@@ -567,6 +567,19 @@ Antworte NUR mit einem JSON-Objekt, keine Erklärung:
   }
 }
 
+function setFeaturedEvent(req, res) {
+  try {
+    const { id } = req.params;
+    const event = db.prepare('SELECT * FROM upcoming_events WHERE id = ?').get(id);
+    if (!event) return res.status(404).json({ error: 'Event nicht gefunden' });
+    db.prepare('UPDATE upcoming_events SET is_featured = 0').run();
+    db.prepare('UPDATE upcoming_events SET is_featured = 1 WHERE id = ?').run(id);
+    res.json(db.prepare('SELECT * FROM upcoming_events WHERE id = ?').get(id));
+  } catch (err) {
+    res.status(500).json({ error: 'Featured setzen fehlgeschlagen' });
+  }
+}
+
 module.exports = {
   getStats,
   getUsers,
@@ -583,4 +596,5 @@ module.exports = {
   deleteEvent,
   classifyEvent,
   generateTagline,
+  setFeaturedEvent,
 };

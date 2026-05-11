@@ -214,6 +214,14 @@ function EventsTab() {
     } catch { toast.error('Löschen fehlgeschlagen'); }
   }
 
+  async function setFeatured(id, name) {
+    try {
+      await api.post(`/admin/events/${id}/feature`);
+      toast.success(`"${name}" ist jetzt das Featured Event`);
+      loadEvents();
+    } catch { toast.error('Featured setzen fehlgeschlagen'); }
+  }
+
   function startEdit(ev) {
     setForm({
       name: ev.name || '',
@@ -384,6 +392,13 @@ function EventsTab() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {ev.is_featured ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">★ Featured</span>
+                  ) : (
+                    <button onClick={() => setFeatured(ev.id, ev.name)} className="text-[10px] px-1.5 py-0.5 rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-amber-400 hover:text-amber-500 transition">
+                      ★ setzen
+                    </button>
+                  )}
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${TYPE_COLOR[ev.event_type] || TYPE_COLOR.mixed}`}>
                     {ev.event_type}
                   </span>

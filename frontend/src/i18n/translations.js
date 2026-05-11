@@ -8,7 +8,7 @@ export const translations = {
     offerPlaceDesc: 'Teile freie Plätze an deinem Tisch',
     activeOffers: 'Aktive Angebote',
     yourMatches: 'Deine Matches',
-    findPlaceOnWiesn: 'Finde deinen Platz beim Karneval',
+    findPlaceOnWiesn: 'Entdecke dein nächstes Event',
 
     // Auth
     login: 'Einloggen',
@@ -30,7 +30,7 @@ export const translations = {
     consentText: 'Ich stimme den',
     privacyPolicy: 'Datenschutzbestimmungen',
     consentEnd: 'zu.',
-    welcomeWiesn: 'Willkommen beim Karneval!',
+    welcomeWiesn: 'Herzlich willkommen!',
     pleaseSelectGender: 'Bitte Geschlecht wählen',
 
     // Discover
@@ -155,7 +155,7 @@ export const translations = {
     inviteSent: 'Einladung gesendet!',
     acceptInvite: 'Einladung annehmen',
     inviteAccepted: 'Einladung angenommen! Wir sehen uns!',
-    inviteAcceptedBanner: 'Einladung angenommen! Viel Spaß beim Karneval!',
+    inviteAcceptedBanner: 'Einladung angenommen! Viel Spaß beim Event!',
     accepted: 'Angenommen',
     waiting: 'Wartet...',
     rejectMatch: 'Match wirklich ablehnen? Das Angebot wird für diese Person heute gesperrt.',
@@ -223,15 +223,15 @@ export const translations = {
     loadFailed: 'Laden fehlgeschlagen',
 
     // Landing
-    landingSubtitle: 'Finde deinen Platz beim Kölner Karneval',
+    landingSubtitle: 'Finde deinen Platz beim nächsten Event',
     landingCTA: 'Jetzt registrieren',
-    landingDescription: 'Die App für den Karneval. Finde freie Plätze, chatte mit den Anbietern und sichere dir deine Einladung.',
+    landingDescription: 'Die App für Events & Feste. Finde freie Plätze, chatte mit den Anbietern und sichere dir deine Einladung.',
     landingFeature1Title: 'Platz finden',
     landingFeature1Desc: 'Swipe durch verfügbare Locations und finde den perfekten Platz.',
     landingFeature2Title: 'Chatten & Kennenlernen',
     landingFeature2Desc: 'Lerne deine Mitfeiernden vorab kennen und verabredet euch.',
     landingFeature3Title: 'Einladung erhalten',
-    landingFeature3Desc: 'Erhalte eine Einladung und sichere dir deinen Platz beim Karneval.',
+    landingFeature3Desc: 'Erhalte eine Einladung und sichere dir deinen Platz beim Event.',
 
     // Registration & Verification
     registrationPending: 'Registrierung erfolgreich! Dein Account wartet auf Freischaltung.',
@@ -300,7 +300,7 @@ export const translations = {
     offerPlaceDesc: 'Share free seats at your table',
     activeOffers: 'Active Offers',
     yourMatches: 'Your Matches',
-    findPlaceOnWiesn: 'Find your spot at Karneval',
+    findPlaceOnWiesn: 'Discover your next event',
 
     login: 'Log in',
     loggingIn: 'Logging in...',
@@ -321,7 +321,7 @@ export const translations = {
     consentText: 'I agree to the',
     privacyPolicy: 'Privacy Policy',
     consentEnd: '.',
-    welcomeWiesn: 'Welcome to Karneval!',
+    welcomeWiesn: 'Welcome!',
     pleaseSelectGender: 'Please select gender',
 
     discover: 'Discover',
@@ -441,7 +441,7 @@ export const translations = {
     inviteSent: 'Invitation sent!',
     acceptInvite: 'Accept Invitation',
     inviteAccepted: 'Invitation accepted! See you there!',
-    inviteAcceptedBanner: 'Invitation accepted! Have fun at Karneval!',
+    inviteAcceptedBanner: 'Invitation accepted! Have fun at the event!',
     accepted: 'Accepted',
     waiting: 'Waiting...',
     rejectMatch: 'Really reject this match? The offer will be hidden for this person today.',
@@ -506,15 +506,15 @@ export const translations = {
     loadFailed: 'Failed to load',
 
     // Landing
-    landingSubtitle: 'Find your spot at Kölner Karneval',
+    landingSubtitle: 'Find your spot at the next event',
     landingCTA: 'Register now',
-    landingDescription: 'The app for Karneval. Find free spots, chat with hosts and secure your invitation.',
+    landingDescription: 'The app for events & festivals. Find free spots, chat with hosts and secure your invitation.',
     landingFeature1Title: 'Find a Spot',
     landingFeature1Desc: 'Swipe through available locations and find the perfect spot.',
     landingFeature2Title: 'Chat & Connect',
     landingFeature2Desc: 'Get to know your fellow celebrants and make plans.',
     landingFeature3Title: 'Get Invited',
-    landingFeature3Desc: 'Receive an invitation and secure your spot at Karneval.',
+    landingFeature3Desc: 'Receive an invitation and secure your spot at the event.',
 
     // Registration & Verification
     registrationPending: 'Registration successful! Your account is waiting for approval.',
