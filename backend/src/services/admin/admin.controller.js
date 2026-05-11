@@ -295,27 +295,96 @@ function getEvents(req, res) {
   }
 }
 
-function createEvent(req, res) {
+async function createEvent(req, res) {
   try {
     const { name, city, state, date_text, emoji, event_type, estimated_visitors, sort_order } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Name erforderlich' });
 
     const BASE = { table: { soft: 75, hard: 150 }, street: { soft: 50, hard: 100 }, camping: { soft: 100, hard: 200 }, mixed: { soft: 75, hard: 150 } };
-    const base = BASE[event_type] || BASE.mixed;
 
+    // Insert with provided or default values first
+    const initialType = event_type || 'mixed';
+    const base = BASE[initialType];
     const result = db.prepare(`
       INSERT INTO upcoming_events (name, city, state, date_text, emoji, event_type, estimated_visitors, sort_order, threshold_soft, threshold_hard)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.trim(), city?.trim() || null, state?.trim() || null, date_text?.trim() || null,
-           emoji?.trim() || '🎉', event_type || 'mixed', estimated_visitors?.trim() || null,
+           emoji?.trim() || '🎉', initialType, estimated_visitors?.trim() || null,
            sort_order ?? 999, base.soft, base.hard);
 
-    const event = db.prepare('SELECT * FROM upcoming_events WHERE id = ?').get(result.lastInsertRowid);
+    const id = result.lastInsertRowid;
+
+    // AI enrichment: classify + tagline in one Gemini call
+    const GEMINI_KEY = process.env.GEMINI_KEY;
+    if (GEMINI_KEY) {
+      try {
+        const aiResult = await geminiAnalyzeEvent(name.trim(), city?.trim(), GEMINI_KEY);
+        if (aiResult) {
+          const resolvedType = event_type || aiResult.event_type || initialType;
+          const resolvedBase = BASE[resolvedType] || BASE.mixed;
+          db.prepare(`
+            UPDATE upcoming_events
+            SET event_type = ?, threshold_soft = ?, threshold_hard = ?, tagline = ?
+            WHERE id = ?
+          `).run(resolvedType, resolvedBase.soft, resolvedBase.hard, aiResult.tagline || null, id);
+        }
+      } catch (e) {
+        console.error('AI enrichment failed (non-fatal):', e.message);
+      }
+    }
+
+    const event = db.prepare('SELECT * FROM upcoming_events WHERE id = ?').get(id);
     res.json(event);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Event anlegen fehlgeschlagen' });
   }
+}
+
+async function geminiAnalyzeEvent(name, city, apiKey) {
+  const https = require('https');
+  const prompt = `Du bist ein Event-Assistent für die App "SaiHello".
+
+Analysiere das folgende Event und antworte NUR mit einem JSON-Objekt:
+
+Event: "${name}"${city ? ` in ${city}` : ''}
+
+Aufgaben:
+1. Klassifiziere in eine Kategorie: "table" (Volksfest/Bierzelt), "street" (Straßenfest/Karneval/Parade), "camping" (Musikfestival mit Camping), "mixed" (Stadtfest/Sonstiges)
+2. Schreibe eine kurze einladende Ansprache (max. 8 Wörter, kein Ausrufezeichen, kein Emoji, Deutsch), die auf der Startseite erscheint
+
+Antworte NUR mit:
+{"event_type": "...", "tagline": "..."}`;
+
+  const body = JSON.stringify({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { maxOutputTokens: 128, temperature: 0.7 }
+  });
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'generativelanguage.googleapis.com',
+      path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    }, (r) => {
+      const chunks = [];
+      r.on('data', c => chunks.push(c));
+      r.on('end', () => {
+        try {
+          const data = JSON.parse(Buffer.concat(chunks).toString());
+          const parts = data.candidates?.[0]?.content?.parts || [];
+          let text = '';
+          for (const p of parts) { if (p.text && !p.thought) text = p.text; }
+          const match = text.match(/\{[\s\S]*?\}/);
+          resolve(match ? JSON.parse(match[0]) : null);
+        } catch (e) { resolve(null); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
 }
 
 function updateEvent(req, res) {

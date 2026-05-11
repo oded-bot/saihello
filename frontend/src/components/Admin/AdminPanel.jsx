@@ -180,48 +180,54 @@ function EventsTab() {
             className="w-full px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
           />
 
-          {/* Event Type + AI Button */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <select
-                value={form.event_type}
-                onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}
-                className="flex-1 px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
-              >
-                {EVENT_TYPES.map(t => (
-                  <option key={t.value} value={t.value}>{t.emoji} {t.label}</option>
-                ))}
-              </select>
+          {/* Event Type: manual select + KI-Button nur beim Bearbeiten */}
+          <div className="flex items-center gap-2">
+            <select
+              value={form.event_type}
+              onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}
+              className="flex-1 px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
+            >
+              {EVENT_TYPES.map(t => (
+                <option key={t.value} value={t.value}>{t.emoji} {t.label}</option>
+              ))}
+            </select>
+            {editId && (
               <button
                 onClick={classify}
                 disabled={classifying}
                 className="flex items-center gap-1.5 px-3 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
               >
                 <Wand2 size={14} />
-                {classifying ? 'KI...' : 'Klassifizieren'}
+                {classifying ? 'KI...' : 'KI'}
               </button>
-            </div>
+            )}
           </div>
 
           {/* Tagline */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <input
-                placeholder="Tagline (Ansprache auf der Startseite)"
+                placeholder="Tagline (wird beim Anlegen automatisch generiert)"
                 value={form.tagline || ''}
                 onChange={e => setForm(f => ({ ...f, tagline: e.target.value }))}
                 className="flex-1 px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
               />
-              <button
-                onClick={generateTagline}
-                disabled={generatingTagline}
-                className="flex items-center gap-1.5 px-3 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
-              >
-                <Wand2 size={14} />
-                {generatingTagline ? 'KI...' : 'KI-Tagline'}
-              </button>
+              {editId && (
+                <button
+                  onClick={generateTagline}
+                  disabled={generatingTagline}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+                >
+                  <Wand2 size={14} />
+                  {generatingTagline ? 'KI...' : 'KI'}
+                </button>
+              )}
             </div>
-            <p className="text-xs text-gray-400">Wird auf der Startseite angezeigt, wenn dieses Event aktiv ist</p>
+            {!editId && (
+              <p className="text-xs text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                <Wand2 size={11} /> KI klassifiziert und schreibt Tagline automatisch beim Anlegen
+              </p>
+            )}
           </div>
 
           <div className="flex gap-2 pt-1">
@@ -236,7 +242,7 @@ function EventsTab() {
               disabled={saving}
               className="flex-1 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium disabled:opacity-50"
             >
-              {saving ? 'Speichern...' : editId ? 'Aktualisieren' : 'Anlegen'}
+              {saving ? 'KI analysiert…' : editId ? 'Aktualisieren' : 'Anlegen'}
             </button>
           </div>
         </div>
