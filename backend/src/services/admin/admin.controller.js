@@ -342,6 +342,7 @@ function updateEvent(req, res) {
     if (estimated_visitors !== undefined) { fields.push('estimated_visitors = ?'); vals.push(estimated_visitors.trim() || null); }
     if (sort_order !== undefined) { fields.push('sort_order = ?'); vals.push(Number(sort_order)); }
     if (is_tracker_active !== undefined) { fields.push('is_tracker_active = ?'); vals.push(is_tracker_active ? 1 : 0); }
+    if (req.body.tagline !== undefined) { fields.push('tagline = ?'); vals.push(req.body.tagline || null); }
 
     if (fields.length === 0) return res.json({ success: true });
 
@@ -360,6 +361,81 @@ function deleteEvent(req, res) {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Event löschen fehlgeschlagen' });
+  }
+}
+
+async function generateTagline(req, res) {
+  const { name, city, event_type, table } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name erforderlich' });
+
+  const GEMINI_KEY = process.env.GEMINI_KEY;
+  if (!GEMINI_KEY) return res.status(500).json({ error: 'Kein Gemini API Key konfiguriert' });
+
+  const TYPE_CONTEXT = {
+    table:   'ein Volksfest mit Bierzelten und Tischen (Oktoberfest-Stil)',
+    street:  'ein Straßenfest oder Karneval mit Umzügen und Straßenpartys',
+    camping: 'ein Musikfestival mit Campingbereich',
+    mixed:   'ein großes Stadtfest oder gemischtes Event',
+  };
+
+  const prompt = `Du bist ein kreativer Texter für die App "SaiHello", die Menschen dabei hilft, Plätze bei Events zu finden und zu teilen.
+
+Schreibe einen kurzen, einladenden Satz (max. 8 Wörter) für die Startseite der App, der Nutzer animiert, beim folgenden Event mitzumachen:
+
+Event: "${name.trim()}"${city ? ` in ${city.trim()}` : ''}
+Typ: ${TYPE_CONTEXT[event_type] || TYPE_CONTEXT.mixed}
+
+Regeln:
+- Kein Ausrufezeichen
+- Keine Anführungszeichen
+- Kein Emoji
+- Deutsch, einladend, kurz
+- Darf den Event-Namen enthalten
+- Beispiel-Stil: "Finde deinen Platz beim Oktoberfest" oder "Sei dabei beim Hamburger Dom"
+
+Antworte NUR mit dem Satz, nichts anderes.`;
+
+  const https = require('https');
+  const body = JSON.stringify({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { maxOutputTokens: 64, temperature: 0.8 }
+  });
+
+  try {
+    const tagline = await new Promise((resolve, reject) => {
+      const req2 = https.request({
+        hostname: 'generativelanguage.googleapis.com',
+        path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      }, (r) => {
+        const chunks = [];
+        r.on('data', c => chunks.push(c));
+        r.on('end', () => {
+          try {
+            const data = JSON.parse(Buffer.concat(chunks).toString());
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            let text = '';
+            for (const p of parts) { if (p.text && !p.thought) text = p.text; }
+            resolve(text.trim().replace(/^["']|["']$/g, ''));
+          } catch (e) { reject(e); }
+        });
+      });
+      req2.on('error', reject);
+      req2.write(body);
+      req2.end();
+    });
+
+    // Persist immediately if table + id given
+    if (table && req.body.id) {
+      const tbl = table === 'tracker' ? 'tracker_events' : 'upcoming_events';
+      db.prepare(`UPDATE ${tbl} SET tagline = ? WHERE id = ?`).run(tagline, req.body.id);
+    }
+
+    res.json({ tagline });
+  } catch (err) {
+    console.error('Tagline error:', err);
+    res.status(500).json({ error: 'Tagline-Generierung fehlgeschlagen' });
   }
 }
 

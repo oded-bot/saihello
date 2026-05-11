@@ -111,10 +111,12 @@ export default function HomeScreen() {
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [tagline, setTagline] = useState(null);
 
   useEffect(() => {
     loadStats();
     loadLeaderboard();
+    loadTagline();
     if (FEATURES.howsMyStyle) loadPendingInvites();
 
     const socket = connectSocket();
@@ -134,6 +136,13 @@ export default function HomeScreen() {
         offers: offersRes.data.filter(o => o.status === 'active').length,
         matches: matchesRes.data.length,
       });
+    } catch (err) {}
+  }
+
+  async function loadTagline() {
+    try {
+      const { data } = await api.get('/tracker/active');
+      if (data?.event?.tagline) setTagline(data.event.tagline);
     } catch (err) {}
   }
 
@@ -168,7 +177,7 @@ export default function HomeScreen() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {t('greeting')}{user?.displayName ? `, ${user.displayName}` : ''}!
           </h1>
-          <p className="text-gray-400 text-sm mt-1">{t('findPlaceOnWiesn')}</p>
+          <p className="text-gray-400 text-sm mt-1">{tagline || t('findPlaceOnWiesn')}</p>
         </div>
         <button
           onClick={() => navigate('/profile')}

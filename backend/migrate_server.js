@@ -16,6 +16,7 @@ db.exec(`
     threshold_soft INTEGER DEFAULT 75,
     threshold_hard INTEGER DEFAULT 150,
     is_tracker_active INTEGER DEFAULT 0,
+    tagline TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   )
 `);
@@ -183,11 +184,13 @@ if (eventCount === 0) {
   try { db.exec('ALTER TABLE upcoming_events ADD COLUMN threshold_soft INTEGER DEFAULT 75'); } catch(e) {}
   try { db.exec('ALTER TABLE upcoming_events ADD COLUMN threshold_hard INTEGER DEFAULT 150'); } catch(e) {}
   try { db.exec('ALTER TABLE upcoming_events ADD COLUMN is_tracker_active INTEGER DEFAULT 0'); } catch(e) {}
+  try { db.exec('ALTER TABLE upcoming_events ADD COLUMN tagline TEXT'); } catch(e) {}
   console.log(`✓ upcoming_events: ${eventCount} events already present`);
 }
 
 // ── 2. Fix tracker_registrations: make event_id nullable, add upcoming_event_id ──
 try { db.exec('ALTER TABLE tracker_registrations ADD COLUMN upcoming_event_id INTEGER REFERENCES upcoming_events(id)'); } catch(e) {}
+try { db.exec('ALTER TABLE tracker_events ADD COLUMN tagline TEXT'); } catch(e) {}
 
 const cols = db.prepare('PRAGMA table_info(tracker_registrations)').all();
 const eventIdCol = cols.find(c => c.name === 'event_id');

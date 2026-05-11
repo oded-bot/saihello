@@ -29,7 +29,7 @@ const EVENT_TYPES = [
   { value: 'mixed',   label: 'Gemischt / Sonstiges',         emoji: '🎡' },
 ];
 
-const EMPTY_FORM = { name: '', city: '', state: '', date_text: '', emoji: '🎉', event_type: 'mixed', estimated_visitors: '', sort_order: '' };
+const EMPTY_FORM = { name: '', city: '', state: '', date_text: '', emoji: '🎉', event_type: 'mixed', estimated_visitors: '', sort_order: '', tagline: '' };
 
 function EventsTab() {
   const [events, setEvents] = useState([]);
@@ -38,6 +38,7 @@ function EventsTab() {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [classifying, setClassifying] = useState(false);
+  const [generatingTagline, setGeneratingTagline] = useState(false);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -60,6 +61,20 @@ function EventsTab() {
       toast.success(`Klassifiziert: ${data.event_type} (${data.confidence}) — ${data.reason}`);
     } catch { toast.error('Klassifizierung fehlgeschlagen'); }
     finally { setClassifying(false); }
+  }
+
+  async function generateTagline() {
+    if (!form.name.trim()) return toast.error('Bitte zuerst den Namen eingeben');
+    setGeneratingTagline(true);
+    try {
+      const { data } = await api.post('/admin/events/tagline', {
+        name: form.name, city: form.city, event_type: form.event_type,
+        table: 'upcoming', id: editId,
+      });
+      setForm(f => ({ ...f, tagline: data.tagline }));
+      toast.success('Tagline generiert');
+    } catch { toast.error('Tagline-Generierung fehlgeschlagen'); }
+    finally { setGeneratingTagline(false); }
   }
 
   async function save() {
@@ -100,6 +115,7 @@ function EventsTab() {
       event_type: ev.event_type || 'mixed',
       estimated_visitors: ev.estimated_visitors || '',
       sort_order: ev.sort_order ?? '',
+      tagline: ev.tagline || '',
     });
     setEditId(ev.id);
     setShowForm(true);
@@ -182,10 +198,30 @@ function EventsTab() {
                 className="flex items-center gap-1.5 px-3 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
               >
                 <Wand2 size={14} />
-                {classifying ? 'KI...' : 'KI klassifizieren'}
+                {classifying ? 'KI...' : 'Klassifizieren'}
               </button>
             </div>
-            <p className="text-xs text-gray-400">Tipp: Name + Stadt eingeben, dann "KI klassifizieren" klicken</p>
+          </div>
+
+          {/* Tagline */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <input
+                placeholder="Tagline (Ansprache auf der Startseite)"
+                value={form.tagline || ''}
+                onChange={e => setForm(f => ({ ...f, tagline: e.target.value }))}
+                className="flex-1 px-3 py-2 border border-gray-200 dark:border-dark-separator rounded-lg text-sm bg-white dark:bg-dark-elevated text-gray-900 dark:text-white"
+              />
+              <button
+                onClick={generateTagline}
+                disabled={generatingTagline}
+                className="flex items-center gap-1.5 px-3 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+              >
+                <Wand2 size={14} />
+                {generatingTagline ? 'KI...' : 'KI-Tagline'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">Wird auf der Startseite angezeigt, wenn dieses Event aktiv ist</p>
           </div>
 
           <div className="flex gap-2 pt-1">
