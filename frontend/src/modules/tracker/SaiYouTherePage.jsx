@@ -181,7 +181,7 @@ export default function SaiYouTherePage({ isLoggedIn, onGoToApp }) {
           <div className="text-center">
             <div className="text-7xl mb-3">{event.emoji}</div>
             <h1 className="text-3xl font-extrabold text-white tracking-tight">{event.name}</h1>
-            <p className="text-gray-500 text-sm mt-1">{formatEventDate(event.event_date)} · {event.city}</p>
+            <p className="text-gray-500 text-sm mt-1">{event.date_text || (event.event_date ? formatEventDate(event.event_date) : '')} · {event.city}</p>
           </div>
 
           <EventCountdown event={event} />

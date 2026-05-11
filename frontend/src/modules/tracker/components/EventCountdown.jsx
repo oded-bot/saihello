@@ -3,8 +3,9 @@ import { Calendar } from 'lucide-react';
 import { getDaysUntil } from '../utils';
 
 export default function EventCountdown({ event }) {
+  if (!event.event_date) return null;
   const days = getDaysUntil(event.event_date);
-  if (days <= 0) return null;
+  if (!days || days <= 0) return null;
 
   return (
     <div className="w-full bg-gray-900 rounded-2xl p-4 flex items-center gap-4">
