@@ -224,6 +224,9 @@ if (!isNullable) {
   console.log('✓ tracker_registrations: already nullable, cleaned up');
 }
 
+// ── 3b. profiles.badges column ────────────────────────────────────────────────
+try { db.exec('ALTER TABLE profiles ADD COLUMN badges TEXT'); } catch(e) {}
+
 // ── 4. event_suggestions table ────────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS event_suggestions (
