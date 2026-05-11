@@ -225,7 +225,8 @@ if (!isNullable) {
 }
 
 // ── 3a. upcoming_events.slug column ───────────────────────────────────────────
-try { db.exec('ALTER TABLE upcoming_events ADD COLUMN slug TEXT UNIQUE'); } catch(e) {}
+try { db.exec('ALTER TABLE upcoming_events ADD COLUMN slug TEXT'); } catch(e) {}
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_upcoming_slug ON upcoming_events(slug)'); } catch(e) {}
 
 function toSlug(name) {
   return name.toLowerCase()
