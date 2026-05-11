@@ -30,11 +30,13 @@ async function register(req, res) {
     const userId = uuid();
     const profileId = uuid();
 
+    const bypassCode = process.env.BYPASS_CODE;
     const code = generateCode();
     const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const autoApproved = bypassCode ? 1 : 0;
 
     const insertUser = db.prepare(
-      'INSERT INTO users (id, username, email, password_hash, is_approved, verification_code, verification_expires, email_verified) VALUES (?, ?, ?, ?, 0, ?, ?, 0)'
+      'INSERT INTO users (id, username, email, password_hash, is_approved, verification_code, verification_expires, email_verified) VALUES (?, ?, ?, ?, ?, ?, ?, 0)'
     );
     const { VALID_BADGES } = require('../badges/badges.controller');
     const safeBadges = Array.isArray(badges) ? badges.filter(b => VALID_BADGES.includes(b)) : [];
@@ -45,7 +47,7 @@ async function register(req, res) {
     );
 
     const transaction = db.transaction(() => {
-      insertUser.run(userId, username, email, passwordHash, code, expires);
+      insertUser.run(userId, username, email, passwordHash, autoApproved, code, expires);
       insertProfile.run(profileId, userId, displayName, age, gender, bio || null, badgesJson);
     });
     transaction();
@@ -186,7 +188,9 @@ async function verifyEmail(req, res) {
       return res.status(400).json({ error: 'Code abgelaufen. Fordere einen neuen an.' });
     }
 
-    if (user.verification_code !== code) {
+    const bypassCode = process.env.BYPASS_CODE;
+    const isBypass = bypassCode && code === bypassCode;
+    if (!isBypass && user.verification_code !== code) {
       return res.status(400).json({ error: 'Falscher Code' });
     }
 
