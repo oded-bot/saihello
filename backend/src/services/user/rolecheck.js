@@ -45,9 +45,10 @@ function getRoleStatus(userId) {
   const isOffering = hasActiveOffers(userId);
   const isSearching = hasOpenSearchActivity(userId);
   let mode = 'idle';
-  if (isOffering) mode = 'offering';
+  if (isOffering && isSearching) mode = 'both';
+  else if (isOffering) mode = 'offering';
   else if (isSearching) mode = 'searching';
-  return { mode, canSearch: !isOffering, canOffer: !isSearching };
+  return { mode, canSearch: true, canOffer: !isSearching };
 }
 
 module.exports = { canSearch, canOffer, getRoleStatus };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Flame, Map, PlusCircle, MessageCircle, User, Info } from 'lucide-react';
+import { Flame, Map, Star, MessageCircle, User, Info, Share2 } from 'lucide-react';
 import useNotifications from '../../hooks/useNotifications';
 import useLanguage from '../../hooks/useLanguage';
 import HowItWorksModal from './HowItWorksModal';
@@ -11,11 +11,25 @@ export default function BottomNav() {
   const notifications = useNotifications();
   const { t } = useLanguage();
   const [showHelp, setShowHelp] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  function handleShare() {
+    const refCode = localStorage.getItem('saiHelloRefCode');
+    const url = refCode ? `${window.location.origin}/?ref=${refCode}` : window.location.origin;
+    if (navigator.share) {
+      navigator.share({ title: 'SaiHello', url });
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+      });
+    }
+  }
 
   const tabs = [
     { path: '/home', icon: Flame, label: t('home') },
     { path: '/map', icon: Map, label: 'Karte' },
-    { path: '/offer', icon: PlusCircle, label: t('offer') },
+    { path: '/matches', icon: Star, label: t('matches'), badgeKey: 'matchesBadge' },
     { path: '/chat', icon: MessageCircle, label: t('chat'), badgeKey: 'totalBadge' },
     { path: '/profile', icon: User, label: t('profile') },
   ];
@@ -47,6 +61,15 @@ export default function BottomNav() {
               </button>
             );
           })}
+          <button
+            onClick={handleShare}
+            className="flex flex-col items-center justify-center w-full h-full transition-colors text-gray-400 dark:text-gray-500"
+          >
+            <Share2 size={22} strokeWidth={1.5} className={shareCopied ? 'text-teal-500' : ''} />
+            <span className={`text-[10px] mt-0.5 font-medium ${shareCopied ? 'text-teal-500' : ''}`}>
+              {shareCopied ? 'Kopiert!' : 'Teilen'}
+            </span>
+          </button>
           <button
             onClick={() => setShowHelp(true)}
             className="flex flex-col items-center justify-center w-full h-full transition-colors text-gray-400 dark:text-gray-500"

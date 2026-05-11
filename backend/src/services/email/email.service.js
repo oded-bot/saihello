@@ -1,7 +1,7 @@
 const https = require('https');
 
 const SENDGRID_KEY = process.env.SENDGRID_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@servuswiesn.de';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@saihello.de';
 
 /**
  * Sendet eine E-Mail über die SendGrid HTTP API (ohne npm-Package).
@@ -10,7 +10,7 @@ function sendMail(to, subject, htmlContent) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify({
       personalizations: [{ to: [{ email: to }] }],
-      from: { email: EMAIL_FROM, name: 'Servus Wiesn' },
+      from: { email: EMAIL_FROM, name: 'SaiHello' },
       subject,
       content: [{ type: 'text/html', value: htmlContent }],
     });
@@ -58,7 +58,7 @@ async function sendVerificationEmail(email, code) {
     console.log(`\n*** DEV-MODUS: Verifizierungscode für ${email}: ${code} ***\n`);
     return { success: true };
   }
-  const subject = 'Servus Wiesn — Dein Bestätigungscode';
+  const subject = 'SaiHello — Dein Bestätigungscode';
 
   const html = `
 <!DOCTYPE html>
@@ -76,14 +76,14 @@ async function sendVerificationEmail(email, code) {
           <tr>
             <td style="background:linear-gradient(135deg,#fd267a,#ff6036);padding:32px 24px;text-align:center;">
               <div style="font-size:32px;margin-bottom:8px;">🎪</div>
-              <h1 style="color:#ffffff;font-size:22px;margin:0;font-weight:700;">Servus Wiesn</h1>
+              <h1 style="color:#ffffff;font-size:22px;margin:0;font-weight:700;">SaiHello</h1>
             </td>
           </tr>
           <!-- Body -->
           <tr>
             <td style="padding:32px 28px;">
               <p style="color:#333;font-size:16px;line-height:1.5;margin:0 0 8px;">
-                Willkommen bei Servus Wiesn!
+                Willkommen bei SaiHello!
               </p>
               <p style="color:#666;font-size:14px;line-height:1.5;margin:0 0 24px;">
                 Gib diesen Code in der App ein, um deine E-Mail-Adresse zu bestätigen:
@@ -103,7 +103,7 @@ async function sendVerificationEmail(email, code) {
           <tr>
             <td style="background:#fafafa;padding:16px 28px;border-top:1px solid #f0f0f0;">
               <p style="color:#bbb;font-size:12px;text-align:center;margin:0;">
-                Servus Wiesn — Finde deinen Platz auf dem Oktoberfest
+                SaiHello — Finde deinen Platz beim Event
               </p>
             </td>
           </tr>

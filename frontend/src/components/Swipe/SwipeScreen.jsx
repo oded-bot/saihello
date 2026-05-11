@@ -199,7 +199,7 @@ export default function SwipeScreen() {
   });
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
   const [searchApplied, setSearchApplied] = useState(false);
-  const [roleLocked, setRoleLocked] = useState(false);
+  const [timeConflict, setTimeConflict] = useState(null);
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const pollRef = useRef(null);
   const { t } = useLanguage();
@@ -232,12 +232,14 @@ export default function SwipeScreen() {
   async function loadOffers() {
     try {
       setLoading(true);
+      setTimeConflict(null);
       const { data } = await api.get(`/tables/discover${buildQuery()}`);
       setOffers(data);
       setCurrentIdx(0);
     } catch (err) {
-      if (err.response?.data?.code === 'ROLE_LOCKED_OFFERING') {
-        setRoleLocked(true);
+      if (err.response?.status === 409 && err.response?.data?.code === 'TIME_CONFLICT') {
+        setTimeConflict(err.response.data);
+        setOffers([]);
       } else if (err.response?.status === 429) {
         toast.error(t('tooManyRequests'));
       } else {
@@ -284,13 +286,20 @@ export default function SwipeScreen() {
     setCurrentIdx((prev) => prev + 1);
   }
 
-  if (roleLocked) {
+  if (timeConflict) {
     return (
       <div className="flex items-center justify-center h-[80vh]">
-        <div className="text-center px-8">
-          <PlusCircle size={48} className="text-tinder-pink mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('youAreOfferer')}</h3>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">{t('deactivateFirst')}</p>
+        <div className="text-center px-8 max-w-xs">
+          <Clock size={48} className="text-tinder-yellow mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Zeitkonflikt</h3>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            Du hast bereits ein eigenes Angebot für{' '}
+            <span className="font-semibold text-gray-700 dark:text-gray-300">
+              {timeConflict.conflictFrom}–{timeConflict.conflictUntil} Uhr
+            </span>
+            . Für diesen Zeitraum kannst du keine Plätze suchen.
+          </p>
+          <p className="text-gray-400 text-xs mt-3">Wähle eine andere Uhrzeit im Filter.</p>
         </div>
       </div>
     );

@@ -225,6 +225,23 @@ function discoverOffers(req, res) {
       return res.status(400).json({ error: 'Profil nicht vollständig' });
     }
 
+    // Zeitkonflikt mit eigenen Angeboten prüfen
+    if (timeFrom && timeUntil && date) {
+      const ownOffers = db.prepare(
+        "SELECT time_from, time_until, date FROM table_offers WHERE user_id = ? AND status = 'active' AND date = ?"
+      ).all(userId, date);
+
+      for (const own of ownOffers) {
+        if (own.time_until > timeFrom && own.time_from < timeUntil) {
+          return res.status(409).json({
+            code: 'TIME_CONFLICT',
+            conflictFrom: own.time_from,
+            conflictUntil: own.time_until,
+          });
+        }
+      }
+    }
+
     let query = `
       SELECT o.id, o.total_seats, o.available_seats, o.date, o.time_from, o.time_until,
              o.preferred_genders, o.preferred_age_min, o.preferred_age_max,

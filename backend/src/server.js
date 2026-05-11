@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3000;
 
 // CORS Origins
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'https://whatstalk.de';
-const allowedOrigins = [CORS_ORIGIN, 'https://servuswiesn.de', 'https://www.servuswiesn.de', 'https://servuswiesn.com', 'https://www.servuswiesn.com', 'http://178.104.69.42'];
+const allowedOrigins = [CORS_ORIGIN, 'https://saihello.de', 'https://www.saihello.de', 'http://178.104.69.42'];
 
 // Socket.IO
 const io = new Server(server, {
@@ -63,6 +63,7 @@ app.use('/api/leaderboard', require('./services/leaderboard/leaderboard.routes')
 app.use('/api/admin', require('./services/admin/admin.routes'));
 app.use('/api/yesterday', require('./services/yesterday/yesterday.routes'));
 app.use('/api/tracker', require('./services/tracker/tracker.routes'));
+app.use('/api/events', require('./services/events/events.routes'));
 
 // Health Check
 app.get('/api/health', (req, res) => {

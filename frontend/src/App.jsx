@@ -128,6 +128,11 @@ export default function App() {
             ? <TrackerPage isLoggedIn={!!token} onGoToApp={() => window.location.href = '/home'} />
             : (token ? <Navigate to="/home" replace /> : <LandingPage />)
         } />
+        <Route path="/tracker" element={
+          <ProtectedRoute>
+            <TrackerPage isLoggedIn={!!token} onGoToApp={() => window.location.href = '/home'} />
+          </ProtectedRoute>
+        } />
 
         {/* Protected */}
         <Route path="/home" element={

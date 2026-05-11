@@ -43,7 +43,7 @@ router.delete('/offers/:offerId', [
   validate,
 ], tableController.deleteOffer);
 
-// Verfügbare Angebote zum Swipen abrufen (gesperrt wenn aktiv am Anbieten)
-router.get('/discover', canSearch, tableController.discoverOffers);
+// Verfügbare Angebote zum Swipen abrufen
+router.get('/discover', tableController.discoverOffers);
 
 module.exports = router;

@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Search, PlusCircle, Star, TrendingUp, X, CalendarDays } from 'lucide-react';
+import { Flame, Search, PlusCircle, Star, TrendingUp, X, CalendarDays, MessageCircle } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import useLanguage from '../../hooks/useLanguage';
 import api from '../../utils/api';
 import { FEATURES } from '../../config/features';
 import { connectSocket } from '../../utils/socket';
 
-const NEXT_EVENTS = [
-  { emoji: '🍺', name: 'Oktoberfest', date: '18. Sep – 4. Okt 2027', city: 'München' },
-  { emoji: '🎭', name: 'Kölner Karneval', date: '8. – 12. Feb 2027', city: 'Köln' },
-  { emoji: '🎉', name: 'Mardi Gras', date: '16. Feb 2027', city: 'New Orleans' },
-];
+const EVENT_TYPE_LABEL = {
+  table:   'Platz & Tisch',
+  street:  'Straßenfest',
+  camping: 'Festival',
+  mixed:   'Gemischt',
+};
 
-function NextEventModal({ onClose }) {
+function NextEventModal({ onClose, events, loading, onSelectEvent }) {
   return (
     <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div className="bg-white dark:bg-dark-card rounded-t-3xl w-full max-w-md p-6 shadow-2xl" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }} onClick={e => e.stopPropagation()}>
@@ -24,18 +25,28 @@ function NextEventModal({ onClose }) {
           </button>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">SaiHello ist dabei — sei es auch.</p>
-        <div className="space-y-3">
-          {NEXT_EVENTS.map(ev => (
-            <div key={ev.name} className="flex items-center gap-4 bg-gray-50 dark:bg-dark-elevated rounded-2xl p-4">
-              <span className="text-3xl">{ev.emoji}</span>
-              <div className="flex-1">
-                <p className="font-bold text-gray-900 dark:text-white text-sm">{ev.name}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{ev.date} · {ev.city}</p>
-              </div>
-              <span className="text-xs font-semibold text-tinder-pink bg-pink-50 dark:bg-pink-900/20 px-3 py-1 rounded-full">Bald</span>
-            </div>
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" /></div>
+        ) : (
+          <div className="space-y-3 overflow-y-auto max-h-[60vh]">
+            {events.map(ev => (
+              <button
+                key={ev.id}
+                onClick={() => onSelectEvent(ev.id)}
+                className="w-full flex items-center gap-4 bg-gray-50 dark:bg-dark-elevated rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
+              >
+                <span className="text-3xl">{ev.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-900 dark:text-white text-sm truncate">{ev.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{ev.date_text} · {ev.city}</p>
+                </div>
+                <span className="text-xs font-semibold text-tinder-pink bg-pink-50 dark:bg-pink-900/20 px-2 py-1 rounded-full shrink-0">
+                  {EVENT_TYPE_LABEL[ev.event_type] || ev.event_type}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -48,6 +59,8 @@ export default function HomeScreen() {
   const [stats, setStats] = useState({ offers: 0, matches: 0 });
   const [pendingInvites, setPendingInvites] = useState(0);
   const [showNextEventModal, setShowNextEventModal] = useState(false);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
@@ -73,6 +86,15 @@ export default function HomeScreen() {
         matches: matchesRes.data.length,
       });
     } catch (err) {}
+  }
+
+  async function loadUpcomingEvents() {
+    setEventsLoading(true);
+    try {
+      const { data } = await api.get('/events');
+      setUpcomingEvents(data);
+    } catch (err) {}
+    finally { setEventsLoading(false); }
   }
 
   async function loadLeaderboard() {
@@ -124,28 +146,26 @@ export default function HomeScreen() {
       {/* Action Cards */}
       <div className="space-y-4">
 
-        {/* 1. Nächstes Event — volle Breite */}
-        {FEATURES.nextEvent && (
-          <button
-            onClick={() => setShowNextEventModal(true)}
-            className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform shadow-lg"
-            style={{ backgroundColor: '#0f766e' }}
-          >
-            <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center shrink-0">
-              <CalendarDays size={30} className="text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">Nächstes Event</h3>
-              <p className="text-white/70 text-sm">Schau, wo SaiHello als Nächstes dabei ist</p>
-            </div>
-          </button>
-        )}
+        {/* 1. Platz anbieten — volle Breite */}
+        <button
+          onClick={() => navigate('/offer')}
+          className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform shadow-lg"
+          style={{ backgroundColor: '#334155' }}
+        >
+          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center shrink-0">
+            <PlusCircle size={30} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white">{t('offerPlace')}</h3>
+            <p className="text-white/70 text-sm">{t('offerPlaceDesc')}</p>
+          </div>
+        </button>
 
         {/* 2–4 Karten + optionaler About-yesterday-Streifen links */}
         <div className="flex gap-3">
 
           {/* About yesterday — senkrechter Streifen links */}
-          {FEATURES.yesterday && (
+          {FEATURES.yesterday && !FEATURES.preEventMode && (
             <button
               onClick={() => navigate('/yesterday')}
               className="rounded-2xl shadow-lg flex items-center justify-center active:scale-95 transition-transform shrink-0"
@@ -160,7 +180,7 @@ export default function HomeScreen() {
             </button>
           )}
 
-          {/* Rechte Spalte: Platz finden, Platz anbieten, Life Feed */}
+          {/* Rechte Spalte: Platz finden, Chats, Life Feed */}
           <div className="flex-1 flex flex-col gap-4">
 
             {/* Platz finden */}
@@ -177,22 +197,23 @@ export default function HomeScreen() {
               </div>
             </button>
 
-            {/* Platz anbieten */}
+            {/* Chats */}
             <button
-              onClick={() => navigate('/offer')}
-              className="w-full bg-gray-500 dark:bg-gray-600 rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform shadow-lg dark-transition"
+              onClick={() => navigate('/chat')}
+              className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform shadow-lg"
+              style={{ backgroundColor: '#0284c7' }}
             >
-              <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center shrink-0">
-                <PlusCircle size={24} className="text-white" />
+              <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center shrink-0">
+                <MessageCircle size={24} className="text-white" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">{t('offerPlace')}</h3>
-                <p className="text-white/50 text-xs">{t('offerPlaceDesc')}</p>
+                <h3 className="text-base font-bold text-white">{t('chat')}</h3>
+                <p className="text-white/70 text-xs">Deine Gespräche &amp; Einladungen</p>
               </div>
             </button>
 
             {/* Life Feed */}
-            {FEATURES.lifeFeed && (
+            {FEATURES.lifeFeed && !FEATURES.preEventMode && (
               <button
                 onClick={() => navigate('/feed')}
                 className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform shadow-lg"
@@ -213,11 +234,18 @@ export default function HomeScreen() {
 
       </div>
 
-      {showNextEventModal && <NextEventModal onClose={() => setShowNextEventModal(false)} />}
+      {showNextEventModal && (
+        <NextEventModal
+          onClose={() => setShowNextEventModal(false)}
+          events={upcomingEvents}
+          loading={eventsLoading}
+          onSelectEvent={(id) => { setShowNextEventModal(false); navigate(`/tracker?event=${id}`); }}
+        />
+      )}}
 
       {/* Leaderboard */}
       {leaderboard.length > 0 && (
-        <div className="mt-8 mb-6">
+        <div className="mt-8 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xl">🏆</span>
             <h2 className="text-base font-bold text-gray-900 dark:text-white">Top 10 Gastgeber</h2>
@@ -250,6 +278,19 @@ export default function HomeScreen() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Nächstes Event — kompakt, unter Leaderboard */}
+      {FEATURES.nextEvent && (
+        <button
+          onClick={() => { setShowNextEventModal(true); if (!upcomingEvents.length) loadUpcomingEvents(); }}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left active:scale-[0.98] transition-transform mb-6"
+          style={{ backgroundColor: '#f59e0b' }}
+        >
+          <CalendarDays size={18} className="text-white shrink-0" />
+          <span className="text-sm text-white font-medium">Nächste Events</span>
+          <span className="ml-auto text-xs text-white/70">→</span>
+        </button>
       )}
     </div>
   );
