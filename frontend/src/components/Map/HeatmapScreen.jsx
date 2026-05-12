@@ -2,9 +2,50 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMap, ZoomControl, Circle } from 'react-leaflet';
 import L from 'leaflet';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, X } from 'lucide-react';
 import api from '../../utils/api';
 import BottomNav from '../Shared/BottomNav';
+
+function PinTeaserModal({ onClose, navigate }) {
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60" onClick={onClose}>
+      <div
+        className="bg-dark-card rounded-t-3xl w-full max-w-md p-6 shadow-2xl border-t border-dark-separator"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-3xl mb-2">👀</p>
+            <h2 className="text-xl font-bold text-white">Wer steckt dahinter?</h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-dark-elevated flex items-center justify-center mt-1">
+            <X size={16} className="text-white/50" />
+          </button>
+        </div>
+
+        <p className="text-white/60 text-sm leading-relaxed mb-6">
+          Diese Pins zeigen, dass in deiner Nähe gerade etwas los ist. Sobald du ein Angebot einstellst oder eine Suche startest, werden dir echte Profile sichtbar — und du kannst direkt matchen.
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => { onClose(); navigate('/offer'); }}
+            className="flex-1 py-3.5 tinder-gradient text-white font-bold rounded-2xl text-sm active:scale-95 transition gradient-glow"
+          >
+            Einladung erstellen
+          </button>
+          <button
+            onClick={() => { onClose(); navigate('/discover'); }}
+            className="flex-1 py-3.5 glass text-white font-semibold rounded-2xl text-sm active:scale-95 transition border border-white/10"
+          >
+            Suche starten
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -73,6 +114,7 @@ export default function HeatmapScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
+  const [showTeaser, setShowTeaser] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -126,13 +168,23 @@ export default function HeatmapScreen() {
           <RecenterMap center={[data.centerLat, data.centerLng]} />
           <HeatLayer points={data.heatPoints} />
 
-          {/* Non-clickable offer pins */}
+          {/* Offer pins — clickable, open teaser */}
           {data.offerPins.map(pin => (
-            <Marker key={`o-${pin.id}`} position={[pin.lat, pin.lng]} icon={offerIcon} interactive={false} />
+            <Marker
+              key={`o-${pin.id}`}
+              position={[pin.lat, pin.lng]}
+              icon={offerIcon}
+              eventHandlers={{ click: () => setShowTeaser(true) }}
+            />
           ))}
-          {/* Non-clickable seeker pins */}
+          {/* Seeker pins — clickable, open teaser */}
           {data.seekerPins.map(pin => (
-            <Marker key={`s-${pin.id}`} position={[pin.lat, pin.lng]} icon={seekerIcon} interactive={false} />
+            <Marker
+              key={`s-${pin.id}`}
+              position={[pin.lat, pin.lng]}
+              icon={seekerIcon}
+              eventHandlers={{ click: () => setShowTeaser(true) }}
+            />
           ))}
         </MapContainer>
       )}
@@ -175,6 +227,10 @@ export default function HeatmapScreen() {
       )}
 
       <BottomNav />
+
+      {showTeaser && (
+        <PinTeaserModal onClose={() => setShowTeaser(false)} navigate={navigate} />
+      )}
     </div>
   );
 }
