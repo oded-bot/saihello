@@ -44,6 +44,8 @@ db.exec(`
     verified_at TEXT,
     rating REAL DEFAULT 0.0,
     total_ratings INTEGER DEFAULT 0,
+    emoji TEXT,
+    badges TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -278,6 +280,13 @@ db.exec(`
   );
 `);
 
+// location columns migration (must run before indexes)
+try { db.exec(`ALTER TABLE seeker_searches ADD COLUMN location_lat REAL`); } catch (e) {}
+try { db.exec(`ALTER TABLE seeker_searches ADD COLUMN location_lng REAL`); } catch (e) {}
+try { db.exec(`ALTER TABLE table_offers ADD COLUMN location_text TEXT`); } catch (e) {}
+try { db.exec(`ALTER TABLE table_offers ADD COLUMN location_lat REAL`); } catch (e) {}
+try { db.exec(`ALTER TABLE table_offers ADD COLUMN location_lng REAL`); } catch (e) {}
+
 // Indexes
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);
@@ -350,6 +359,26 @@ try {
 try {
   db.exec(`ALTER TABLE users ADD COLUMN resend_window_start TEXT`);
 } catch (e) { /* Spalte existiert bereits */ }
+
+// Top 10 Opt-in
+try {
+  db.exec(`ALTER TABLE profiles ADD COLUMN top10_public INTEGER DEFAULT 0`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE profiles ADD COLUMN top10_opted_at TEXT`);
+} catch (e) {}
+
+// Gastgeber-Pinnwand Kommentare
+db.exec(`
+  CREATE TABLE IF NOT EXISTS host_comments (
+    id TEXT PRIMARY KEY,
+    host_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    author_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_host_comments_host ON host_comments(host_user_id);
+`);
 
 // Oktoberfest-Zelte einfügen (nur wenn leer)
 const tentCount = db.prepare('SELECT COUNT(*) as c FROM tents').get();

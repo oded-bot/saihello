@@ -43,7 +43,7 @@ export default function LandingPage() {
 
           {/* Title */}
           <h1 className="relative z-10 text-3xl font-extrabold text-white tracking-tight mb-2">
-            Servus Wiesn
+            SaiHello
           </h1>
           <p className="relative z-10 text-white/90 text-base font-medium max-w-[280px] mx-auto leading-snug">
             {t('landingSubtitle')}
@@ -108,7 +108,7 @@ export default function LandingPage() {
             {t('imprint')}
           </button>
         </div>
-        <p className="text-gray-300 text-xs mt-2">Servus Wiesn © 2026</p>
+        <p className="text-gray-300 text-xs mt-2">SaiHello © 2026</p>
       </div>
     </div>
   );

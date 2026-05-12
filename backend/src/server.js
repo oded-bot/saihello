@@ -60,6 +60,7 @@ app.use('/api/map', require('./services/map/map.routes'));
 app.use('/api/badges', require('./services/badges/badges.routes'));
 app.use('/api/feed', require('./services/feed/feed.routes'));
 app.use('/api/leaderboard', require('./services/leaderboard/leaderboard.routes'));
+app.use('/api/hosts', require('./services/leaderboard/hosts.routes'));
 app.use('/api/admin', require('./services/admin/admin.routes'));
 app.use('/api/yesterday', require('./services/yesterday/yesterday.routes'));
 

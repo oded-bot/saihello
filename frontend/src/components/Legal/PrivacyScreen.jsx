@@ -25,7 +25,7 @@ export default function PrivacyScreen() {
         </p>
 
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">2. Welche Daten wir erheben</h2>
-        <p>Im Rahmen der Nutzung von Servus Wiesn werden folgende personenbezogene Daten verarbeitet:</p>
+        <p>Im Rahmen der Nutzung von SaiHello werden folgende personenbezogene Daten verarbeitet:</p>
         <ul className="list-disc list-inside space-y-1">
           <li>Name (Anzeigename)</li>
           <li>Telefonnummer oder E-Mail-Adresse</li>
@@ -41,7 +41,7 @@ export default function PrivacyScreen() {
         <ul className="list-disc list-inside space-y-1">
           <li>Bereitstellung der Matching-Funktionalit&auml;t (Tisch-Angebote und -Suche)</li>
           <li>Erm&ouml;glichung der Chat-Kommunikation zwischen gematchten Nutzern</li>
-          <li>Tischvermittlung auf dem Oktoberfest</li>
+          <li>Vermittlung sozialer Begegnungen</li>
           <li>Verbesserung des Dienstes</li>
         </ul>
 

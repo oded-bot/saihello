@@ -50,7 +50,7 @@ const useNotificationStore = create((set, get) => ({
           } else if (data.newMatches > get().newMatches) {
             notification = {
               id: Date.now(),
-              sender: 'Servus Wiesn',
+              sender: 'SaiHello',
               content: 'Neues Match! Schau nach wer dich gefunden hat.',
               matchId: null,
               type: 'match',

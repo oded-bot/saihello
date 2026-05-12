@@ -30,7 +30,7 @@ export default function LoginScreen() {
         <div className="inline-flex items-center justify-center w-20 h-20 tinder-gradient rounded-3xl mb-4 shadow-lg">
           <Flame size={40} className="text-white" fill="white" />
         </div>
-        <h1 className="text-3xl font-bold text-gray-900">Servus Wiesn</h1>
+        <h1 className="text-3xl font-bold text-gray-900">SaiHello</h1>
         <p className="text-gray-400 mt-2 text-sm">{t('findPlaceOnWiesn')}</p>
       </div>
 

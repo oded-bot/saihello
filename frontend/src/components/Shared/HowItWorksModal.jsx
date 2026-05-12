@@ -16,17 +16,17 @@ export default function HowItWorksModal({ onClose }) {
         </div>
         <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
           <div className="flex gap-3">
-            <span className="text-xl shrink-0">🍺</span>
+            <span className="text-xl shrink-0">🎉</span>
             <div>
-              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Platz anbieten</p>
-              <p>Du hast noch freie Plätze am Tisch? Erstelle ein Angebot mit Ort, Datum und Uhrzeit – und finde passende Mitbesucher.</p>
+              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Einladung aussprechen</p>
+              <p>Du feierst heute Abend und willst Leute dabei haben? Erstelle ein Angebot mit Ort, Datum und Uhrzeit – und finde passende Mitfeiernde.</p>
             </div>
           </div>
           <div className="flex gap-3">
             <span className="text-xl shrink-0">🔍</span>
             <div>
-              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Platz finden</p>
-              <p>Swipe durch verfügbare Tische. Gefällt dir ein Angebot, wische nach rechts. Der Anbieter entscheidet, ob er dich einlädt.</p>
+              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Einladung finden</p>
+              <p>Swipe durch Einladungen in deiner Nähe. Gefällt dir ein Angebot, wische nach rechts. Der Gastgeber entscheidet, ob er dich einlädt.</p>
             </div>
           </div>
           <div className="flex gap-3">

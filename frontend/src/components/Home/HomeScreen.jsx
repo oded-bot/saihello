@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Search, PlusCircle, Star, TrendingUp, X, Navigation } from 'lucide-react';
+import { Flame, Search, PlusCircle, Star, TrendingUp, X, Navigation, ChevronRight } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
+import HostProfileModal from '../Leaderboard/HostProfileModal';
 import useLanguage from '../../hooks/useLanguage';
 import api from '../../utils/api';
 import { FEATURES } from '../../config/features';
@@ -86,6 +87,7 @@ export default function HomeScreen() {
   const [pendingInvites, setPendingInvites] = useState(0);
   const [showHeatModal, setShowHeatModal] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [selectedHost, setSelectedHost] = useState(null);
 
   useEffect(() => {
     loadStats();
@@ -266,33 +268,48 @@ export default function HomeScreen() {
             <h2 className="text-base font-bold text-gray-900 dark:text-white">Top 10 Gastgeber</h2>
           </div>
           <div className="bg-white dark:bg-dark-card rounded-2xl shadow overflow-hidden">
-            {leaderboard.map((entry, i) => (
-              <div
-                key={entry.id}
-                className={`flex items-center gap-3 px-4 py-3 ${i < leaderboard.length - 1 ? 'border-b border-gray-100 dark:border-dark-separator' : ''}`}
-              >
-                <span className={`w-6 text-center font-bold text-sm ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-400'}`}>
-                  {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
-                </span>
-                {entry.photo_1 ? (
-                  <img src={entry.photo_1} className="w-9 h-9 rounded-full object-cover" alt="" />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-400 to-pink-400 flex items-center justify-center text-base">
-                    {entry.emoji || entry.display_name?.[0] || '👤'}
+            {leaderboard.map((entry, i) => {
+              const isPublic = entry.top10_public === 1;
+              return (
+                <div
+                  key={entry.id}
+                  onClick={() => isPublic && setSelectedHost(entry.id)}
+                  className={`flex items-center gap-3 px-4 py-3 ${i < leaderboard.length - 1 ? 'border-b border-gray-100 dark:border-dark-separator' : ''} ${isPublic ? 'active:bg-gray-50 dark:active:bg-dark-elevated cursor-pointer' : ''}`}
+                >
+                  <span className={`w-6 text-center font-bold text-sm ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-400'}`}>
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+                  </span>
+                  {entry.photo_1 ? (
+                    <img src={entry.photo_1} className="w-9 h-9 rounded-full object-cover" alt="" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-400 to-pink-400 flex items-center justify-center text-base">
+                      {entry.emoji || entry.display_name?.[0] || '👤'}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{entry.display_name}</p>
+                    <p className="text-xs text-gray-400">@{entry.username}</p>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{entry.display_name}</p>
-                  <p className="text-xs text-gray-400">@{entry.username}</p>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <p className="font-bold text-sm text-tinder-pink">{entry.confirmed_count}</p>
+                      <p className="text-xs text-gray-400">Einladungen</p>
+                    </div>
+                    {isPublic && (
+                      <span className="bg-teal-500 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shrink-0">
+                        Profil
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-sm text-tinder-pink">{entry.confirmed_count}</p>
-                  <p className="text-xs text-gray-400">Einladungen</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
+      )}
+
+      {selectedHost && (
+        <HostProfileModal userId={selectedHost} onClose={() => setSelectedHost(null)} />
       )}
     </div>
   );
