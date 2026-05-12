@@ -22,7 +22,7 @@ async function createOffer(req, res) {
       description, groupDescription, photoUrl, pricePerSeat,
       groupAgeMin, groupAgeMax,
       seatsForWomen, seatsForMen, seatsAnyGender,
-      locationText, locationLat, locationLng,
+      locationText, locationLat, locationLng, category,
     } = req.body;
 
     const sfw = parseInt(seatsForWomen) || 0;
@@ -56,8 +56,8 @@ async function createOffer(req, res) {
          description, group_description, photo_url, price_per_seat,
          group_age_min, group_age_max,
          seats_for_women, seats_for_men, seats_any_gender,
-         location_text, location_lat, location_lng)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         location_text, location_lat, location_lng, category)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       offerId, req.user.id, totalSeats, availableSeats, date, timeFrom, timeUntil,
       JSON.stringify(computedGenders),
@@ -66,7 +66,8 @@ async function createOffer(req, res) {
       pricePerSeat || 0,
       groupAgeMin || null, groupAgeMax || null,
       sfw, sfm, sag,
-      locationText || null, finalLat, finalLng
+      locationText || null, finalLat, finalLng,
+      category || 'sonstiges'
     );
 
     res.status(201).json({ id: offerId, message: 'Tisch-Angebot erstellt', lat: finalLat, lng: finalLng });
@@ -218,7 +219,7 @@ function deleteOffer(req, res) {
 function discoverOffers(req, res) {
   try {
     const userId = req.user.id;
-    const { date, minSeats, ageMin, ageMax, seats, women, men, diverse, timeFrom, timeUntil } = req.query;
+    const { date, minSeats, ageMin, ageMax, seats, women, men, diverse, timeFrom, timeUntil, category } = req.query;
 
     const profile = db.prepare('SELECT age, gender FROM profiles WHERE user_id = ?').get(userId);
     if (!profile) {
@@ -231,7 +232,7 @@ function discoverOffers(req, res) {
              o.description, o.group_description, o.photo_url, o.price_per_seat,
              o.group_age_min, o.group_age_max,
              o.seats_for_women, o.seats_for_men, o.seats_any_gender,
-             o.location_text, o.location_lat, o.location_lng,
+             o.location_text, o.location_lat, o.location_lng, o.category,
              p.display_name, p.age as offerer_age, p.gender as offerer_gender,
              p.photo_1 as offerer_photo, p.is_verified, p.rating
       FROM table_offers o
@@ -255,6 +256,10 @@ function discoverOffers(req, res) {
     if (minSeats) {
       query += ' AND o.available_seats >= ?';
       params.push(parseInt(minSeats));
+    }
+    if (category && category !== 'alle') {
+      query += ' AND o.category = ?';
+      params.push(category);
     }
 
     query += ' ORDER BY o.date ASC, o.time_from ASC LIMIT 50';

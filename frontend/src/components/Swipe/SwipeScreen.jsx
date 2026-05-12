@@ -66,6 +66,18 @@ function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
           <div className="card-gradient absolute inset-0 pointer-events-none" />
         </div>
 
+        {/* Kategorie-Badge */}
+        {offer.category && offer.category !== 'sonstiges' && (() => {
+          const map = { clubs: '🎵 Club', restaurants: '🍽️ Restaurant & Bar', kultur: '🎭 Kultur' };
+          const label = map[offer.category];
+          if (!label) return null;
+          return (
+            <div className="absolute top-4 right-4 z-10 bg-black/50 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+              {label}
+            </div>
+          );
+        })()}
+
         {/* Like/Nope Labels */}
         <motion.div
           style={{ opacity: likeOpacity }}
@@ -199,6 +211,7 @@ export default function SwipeScreen() {
   });
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
   const [searchApplied, setSearchApplied] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('alle');
   const [roleLocked, setRoleLocked] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const pollRef = useRef(null);
@@ -210,7 +223,7 @@ export default function SwipeScreen() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  function buildQuery() {
+  function buildQuery(overrideCategory) {
     const params = new URLSearchParams();
     if (ageFilter.min) params.set('ageMin', ageFilter.min);
     if (ageFilter.max) params.set('ageMax', ageFilter.max);
@@ -226,13 +239,16 @@ export default function SwipeScreen() {
     if (searchFilter.date) params.set('date', searchFilter.date);
     if (searchFilter.timeFrom) params.set('timeFrom', searchFilter.timeFrom);
     if (searchFilter.timeUntil) params.set('timeUntil', searchFilter.timeUntil);
+    const cat = overrideCategory !== undefined ? overrideCategory : categoryFilter;
+    if (cat && cat !== 'alle') params.set('category', cat);
     return params.toString() ? `?${params.toString()}` : '';
   }
 
-  async function loadOffers() {
+  async function loadOffers(overrideCategory) {
     try {
       setLoading(true);
-      const { data } = await api.get(`/tables/discover${buildQuery()}`);
+      const queryStr = buildQuery(overrideCategory);
+      const { data } = await api.get(`/tables/discover${queryStr}`);
       setOffers(data);
       setCurrentIdx(0);
     } catch (err) {
@@ -250,7 +266,7 @@ export default function SwipeScreen() {
 
   async function refreshOffers() {
     try {
-      const { data } = await api.get(`/tables/discover${buildQuery()}`);
+      const { data } = await api.get(`/tables/discover${buildQuery(undefined)}`);
       if (data.length > offers.length - currentIdx) {
         setOffers(data);
         setCurrentIdx(0);
@@ -326,6 +342,29 @@ export default function SwipeScreen() {
             <RefreshCw size={16} className="text-gray-500" />
           </button>
         </div>
+      </div>
+
+      {/* Kategorie-Filter Chips */}
+      <div className="flex gap-2 overflow-x-auto pb-1 mb-3 no-scrollbar">
+        {[
+          { key: 'alle', label: t('categoryAll') },
+          { key: 'clubs', label: '🎵 ' + t('categoryClubs') },
+          { key: 'restaurants', label: '🍽️ ' + t('categoryRestaurants') },
+          { key: 'kultur', label: '🎭 ' + t('categoryKultur') },
+          { key: 'sonstiges', label: '✨ ' + t('categorySonstiges') },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => { setCategoryFilter(key); loadOffers(key); }}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition active:scale-95 ${
+              categoryFilter === key
+                ? 'tinder-gradient text-white border-transparent'
+                : 'bg-gray-100 dark:bg-dark-card text-gray-600 dark:text-gray-400 border-gray-200 dark:border-dark-separator'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Altersfilter */}

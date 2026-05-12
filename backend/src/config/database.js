@@ -368,6 +368,11 @@ try {
   db.exec(`ALTER TABLE profiles ADD COLUMN top10_opted_at TEXT`);
 } catch (e) {}
 
+// Kategorie-Feld für Angebote
+try {
+  db.exec(`ALTER TABLE table_offers ADD COLUMN category TEXT DEFAULT 'sonstiges'`);
+} catch (e) {}
+
 // Gastgeber-Pinnwand Kommentare
 db.exec(`
   CREATE TABLE IF NOT EXISTS host_comments (

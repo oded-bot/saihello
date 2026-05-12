@@ -19,6 +19,7 @@ export default function OfferScreen() {
     groupAgeMax: '',
     preferredAgeMin: '',
     preferredAgeMax: '',
+    category: '',
   });
   const [genderEgal, setGenderEgal] = useState(true);
   const [seatsForWomen, setSeatsForWomen] = useState(0);
@@ -60,6 +61,7 @@ export default function OfferScreen() {
       groupAgeMax: offer.group_age_max?.toString() || '',
       preferredAgeMin: offer.preferred_age_min?.toString() || '',
       preferredAgeMax: offer.preferred_age_max?.toString() || '',
+      category: offer.category || '',
     });
     const sfw = offer.seats_for_women || 0;
     const sfm = offer.seats_for_men || 0;
@@ -85,6 +87,7 @@ export default function OfferScreen() {
       totalSeats: '', availableSeats: '', date: '',
       timeFrom: '', timeUntil: '', groupDescription: '', pricePerSeat: '',
       groupAgeMin: '', groupAgeMax: '', preferredAgeMin: '', preferredAgeMax: '',
+      category: '',
     });
     setGenderEgal(true);
     setSeatsForWomen(0);
@@ -169,6 +172,10 @@ export default function OfferScreen() {
       toast.error('Bitte alle Pflichtfelder ausfüllen.');
       return;
     }
+    if (!form.category) {
+      toast.error('Bitte eine Kategorie auswählen.');
+      return;
+    }
     setStep(2);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -214,6 +221,7 @@ export default function OfferScreen() {
         locationText: location.locationText || undefined,
         locationLat: location.locationLat || undefined,
         locationLng: location.locationLng || undefined,
+        category: form.category || 'sonstiges',
       });
 
       toast.success(t('offerCreated'));
@@ -351,6 +359,32 @@ export default function OfferScreen() {
                   />
                 </div>
               )}
+
+              {/* Kategorie */}
+              <div>
+                <label className={labelClass}>{t('categoryLabel')} *</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { key: 'clubs', label: t('categoryClubs'), emoji: '🎵' },
+                    { key: 'restaurants', label: t('categoryRestaurants'), emoji: '🍽️' },
+                    { key: 'kultur', label: t('categoryKultur'), emoji: '🎭' },
+                    { key: 'sonstiges', label: t('categorySonstiges'), emoji: '✨' },
+                  ].map(({ key, label, emoji }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => update('category', key)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition active:scale-95 ${
+                        form.category === key
+                          ? 'border-tinder-pink bg-tinder-pink/10 text-tinder-pink'
+                          : 'border-gray-200 dark:border-dark-separator bg-gray-50 dark:bg-dark-elevated text-gray-600 dark:text-gray-400'
+                      }`}
+                    >
+                      {emoji} {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Datum */}
               <div>
