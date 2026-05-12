@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Flame, Eye, EyeOff } from 'lucide-react';
+import { Zap, Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import useLanguage from '../../hooks/useLanguage';
 import toast from 'react-hot-toast';
@@ -23,30 +23,30 @@ export default function LoginScreen() {
     }
   }
 
+  const inputClass = "w-full px-4 py-4 bg-dark-elevated border border-dark-separator rounded-2xl text-white placeholder-white/25 focus:outline-none focus:border-app-violet focus:ring-1 focus:ring-app-violet/30 transition text-base";
+
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-white flex flex-col justify-center px-8">
+    <div className="max-w-md mx-auto min-h-screen bg-black flex flex-col justify-center px-6">
       {/* Logo */}
       <div className="text-center mb-12">
-        <div className="inline-flex items-center justify-center w-20 h-20 tinder-gradient rounded-3xl mb-4 shadow-lg">
-          <Flame size={40} className="text-white" fill="white" />
+        <div className="inline-flex items-center justify-center w-20 h-20 tinder-gradient rounded-3xl mb-5 gradient-glow">
+          <Zap size={40} className="text-white" fill="white" />
         </div>
-        <h1 className="text-3xl font-bold text-gray-900">SaiHello</h1>
-        <p className="text-gray-400 mt-2 text-sm">{t('findPlaceOnWiesn')}</p>
+        <h1 className="text-4xl font-black text-white">SaiHello</h1>
+        <p className="text-white/40 mt-2 text-sm">{t('findPlaceOnWiesn')}</p>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <input
-            type="text"
-            placeholder="Benutzername"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-            className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-tinder-pink focus:ring-1 focus:ring-tinder-pink/30 transition"
-            required
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input
+          type="text"
+          placeholder="Benutzername"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          autoComplete="username"
+          className={inputClass}
+          required
+        />
 
         <div className="relative">
           <input
@@ -54,13 +54,13 @@ export default function LoginScreen() {
             placeholder={t('password')}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-tinder-pink focus:ring-1 focus:ring-tinder-pink/30 transition pr-12"
+            className={`${inputClass} pr-12`}
             required
           />
           <button
             type="button"
             onClick={() => setShowPw(!showPw)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30"
           >
             {showPw ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
@@ -69,15 +69,15 @@ export default function LoginScreen() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3.5 tinder-gradient text-white font-bold rounded-full shadow-lg hover:shadow-xl transition disabled:opacity-50 text-base"
+          className="w-full py-4 tinder-gradient text-white font-bold rounded-2xl shadow-lg gradient-glow disabled:opacity-50 text-base mt-2 active:scale-[0.98] transition"
         >
           {loading ? t('loggingIn') : t('login')}
         </button>
       </form>
 
-      <p className="text-center text-gray-400 mt-8 text-sm">
+      <p className="text-center text-white/30 mt-8 text-sm">
         {t('noAccount')}{' '}
-        <Link to="/register" className="text-tinder-pink font-semibold">
+        <Link to="/register" className="text-app-neon font-semibold">
           {t('register')}
         </Link>
       </p>

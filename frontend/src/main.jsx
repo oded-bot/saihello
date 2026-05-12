@@ -13,7 +13,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       position="top-center"
       toastOptions={{
         duration: 3000,
-        style: { background: '#FE3C72', color: '#fff', borderRadius: '12px', fontWeight: '500' },
+        style: { background: '#1A1A1A', color: '#fff', borderRadius: '16px', fontWeight: '600', border: '1px solid rgba(255,255,255,0.08)' },
       }}
     />
   </BrowserRouter>

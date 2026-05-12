@@ -5,29 +5,27 @@ export default {
   theme: {
     extend: {
       colors: {
-        wiesn: {
-          gold: '#C8A961',
-          brown: '#5C3D2E',
-          cream: '#FFF8ED',
-          blue: '#1E3A5F',
-          red: '#B22234',
-          green: '#2D5016',
-        },
         tinder: {
-          pink: '#FE3C72',
-          orange: '#FF6B6B',
-          blue: '#0084FF',
-          green: '#4CD964',
-          yellow: '#F5B748',
-          cyan: '#3AB4CC',
-          purple: '#A65CE8',
+          pink: '#EC4899',
+          orange: '#F97316',
+          blue: '#3B82F6',
+          green: '#22C55E',
+          yellow: '#EAB308',
+          cyan: '#06B6D4',
+          purple: '#7C3AED',
           gray: '#E8E8E8',
         },
+        app: {
+          violet: '#7C3AED',
+          pink: '#EC4899',
+          neon: '#A78BFA',
+        },
         dark: {
-          bg: '#111111',
-          card: '#1C1C1E',
-          elevated: '#2C2C2E',
-          separator: '#38383A',
+          bg: '#000000',
+          card: '#0F0F0F',
+          elevated: '#1A1A1A',
+          separator: '#2A2A2A',
+          muted: '#6B7280',
         },
       },
       fontFamily: {

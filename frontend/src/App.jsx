@@ -89,7 +89,7 @@ function AdminRoute({ children }) {
 
 function AppLayout({ children }) {
   return (
-    <div className="max-w-md mx-auto bg-white dark:bg-dark-bg dark-transition" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className="max-w-md mx-auto bg-black dark-transition" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="pb-20">
         {children}
       </div>
@@ -111,7 +111,7 @@ export default function App() {
   }, [token]);
 
   return (
-    <div className="bg-gray-100 dark:bg-dark-bg min-h-screen dark-transition">
+    <div className="bg-black min-h-screen dark-transition">
       {token && <NotificationBanner />}
       <Routes>
         {/* Public */}
