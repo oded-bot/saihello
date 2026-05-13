@@ -7,6 +7,7 @@ const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
 const { setupChatSocket } = require('./services/chat/chat.socket');
+const { setupFeedSocket } = require('./services/feed/feed.socket');
 
 const app = express();
 const server = http.createServer(app);
@@ -71,6 +72,10 @@ app.get('/api/health', (req, res) => {
 
 // WebSocket Chat
 setupChatSocket(io);
+
+// WebSocket Feed (live comments)
+setupFeedSocket(io);
+require('./services/feed/feed.controller').setIo(io);
 
 // Leaderboard: io an matching controller übergeben
 require('./services/matching/matching.controller').setIo(io);

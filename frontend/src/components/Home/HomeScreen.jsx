@@ -169,7 +169,7 @@ export default function HomeScreen() {
             <button
               onClick={() => navigate('/yesterday')}
               className="rounded-2xl flex items-center justify-center active:scale-95 transition-transform shrink-0"
-              style={{ background: 'linear-gradient(180deg, #0EA5E9 0%, #2563EB 100%)', width: '52px' }}
+              style={{ background: 'linear-gradient(180deg, #166534 0%, #4ADE80 35%, #15803D 50%, #86EFAC 70%, #166534 100%)', width: '52px' }}
             >
               <span
                 className="text-white font-bold text-xs tracking-widest select-none"
@@ -211,23 +211,6 @@ export default function HomeScreen() {
               </div>
             </button>
 
-            {/* Life Feed */}
-            {FEATURES.lifeFeed && (
-              <button
-                onClick={() => navigate('/feed')}
-                className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition"
-                style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%)' }}
-              >
-                <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
-                  <span className="text-xl">🎥</span>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Life Feed</h3>
-                  <p className="text-white/60 text-xs">Aktuelle Momente entdecken</p>
-                </div>
-              </button>
-            )}
-
             {/* Where's the heat */}
             <button
               onClick={() => setShowHeatModal(true)}
@@ -242,6 +225,23 @@ export default function HomeScreen() {
                 <p className="text-white/60 text-xs">Zeig mir die heiße Zone</p>
               </div>
             </button>
+
+            {/* Life Feed */}
+            {FEATURES.lifeFeed && (
+              <button
+                onClick={() => navigate('/feed')}
+                className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition"
+                style={{ background: 'linear-gradient(135deg, #7F1D1D 0%, #F87171 30%, #B91C1C 50%, #FCA5A5 70%, #7F1D1D 100%)' }}
+              >
+                <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
+                  <span className="text-xl">🎥</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Life Feed</h3>
+                  <p className="text-white/60 text-xs">Aktuelle Momente entdecken</p>
+                </div>
+              </button>
+            )}
 
           </div>
         </div>
@@ -279,7 +279,7 @@ export default function HomeScreen() {
                   {entry.photo_1 ? (
                     <img src={entry.photo_1} className="w-9 h-9 rounded-full object-cover" alt="" />
                   ) : (
-                    <div className="w-9 h-9 rounded-full tinder-gradient flex items-center justify-center text-base">
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-base" style={{ background: 'linear-gradient(135deg, #0891B2, #06B6D4)' }}>
                       {entry.emoji || entry.display_name?.[0] || '👤'}
                     </div>
                   )}

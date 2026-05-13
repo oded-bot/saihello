@@ -1,16 +1,24 @@
 const db = require('../../config/database');
 
-// Prüft ob User aktive Angebote hat
-// Fix 4: 'full' nicht mehr als aktiv werten — Anbieter ist fertig wenn alle Plätze vergeben
-function hasActiveOffers(userId) {
-  const count = db.prepare(
-    "SELECT COUNT(*) as c FROM table_offers WHERE user_id = ? AND status = 'active'"
-  ).get(userId);
-  return count.c > 0;
+// Prüft ob User ein aktives Angebot hat, das mit dem gesuchten Zeitfenster überlappt.
+// Kein Datum in der Suche → alle aktiven Angebote als Konflikt werten (Vorsichtsprinzip).
+function hasConflictingOffer(userId, date, timeFrom, timeUntil) {
+  const offers = db.prepare(
+    "SELECT date, time_from, time_until FROM table_offers WHERE user_id = ? AND status = 'active'"
+  ).all(userId);
+
+  if (offers.length === 0) return false;
+  if (!date) return true; // kein Datum angegeben → sicherheitshalber sperren
+
+  return offers.some(offer => {
+    if (offer.date !== date) return false;          // anderes Datum → kein Konflikt
+    if (!timeFrom || !timeUntil) return true;       // gleicher Tag, kein Zeitfilter → Konflikt
+    // Zeitüberlappung: Angebot beginnt vor Ende der Suche UND endet nach Beginn der Suche
+    return offer.time_from < timeUntil && offer.time_until > timeFrom;
+  });
 }
 
 // Prüft ob User offene (nicht abgeschlossene) Matches als Suchender hat
-// Fix 4: 'confirmed' AUCH als offene Aktivität werten — Suchender hat noch einen aktiven Platz
 function hasOpenSearchActivity(userId) {
   const count = db.prepare(
     "SELECT COUNT(*) as c FROM matches WHERE seeker_id = ? AND status IN ('active', 'invited', 'confirmed')"
@@ -19,11 +27,32 @@ function hasOpenSearchActivity(userId) {
 }
 
 // Middleware: Kann der User suchen (Discover)?
+// Nur sperren wenn das gesuchte Zeitfenster mit einem aktiven Angebot kollidiert.
 function canSearch(req, res, next) {
-  if (hasActiveOffers(req.user.id)) {
+  const { date, timeFrom, timeUntil } = req.query;
+  const offers = db.prepare(
+    "SELECT id, date, time_from, time_until, location_text FROM table_offers WHERE user_id = ? AND status = 'active'"
+  ).all(req.user.id);
+
+  if (offers.length === 0) return next();
+
+  const conflict = offers.find(offer => {
+    if (!date) return true;
+    if (offer.date !== date) return false;
+    if (!timeFrom || !timeUntil) return true;
+    return offer.time_from < timeUntil && offer.time_until > timeFrom;
+  });
+
+  if (conflict) {
     return res.status(403).json({
-      error: 'Du hast aktive Angebote. Solange du Plätze anbietest, kannst du nicht suchen.',
+      error: 'Zeitfenster belegt',
       code: 'ROLE_LOCKED_OFFERING',
+      conflictingOffer: {
+        date: conflict.date,
+        timeFrom: conflict.time_from,
+        timeUntil: conflict.time_until,
+        locationText: conflict.location_text,
+      },
     });
   }
   next();
@@ -33,7 +62,7 @@ function canSearch(req, res, next) {
 function canOffer(req, res, next) {
   if (hasOpenSearchActivity(req.user.id)) {
     return res.status(403).json({
-      error: 'Du bist gerade am Suchen. Schließe erst deine aktiven Matches ab, bevor du einen Tisch anbietest.',
+      error: 'Du bist gerade am Suchen. Schließe erst deine aktiven Matches ab, bevor du einen Platz anbietest.',
       code: 'ROLE_LOCKED_SEARCHING',
     });
   }
@@ -42,12 +71,14 @@ function canOffer(req, res, next) {
 
 // Status-Endpoint
 function getRoleStatus(userId) {
-  const isOffering = hasActiveOffers(userId);
+  const isOffering = db.prepare(
+    "SELECT COUNT(*) as c FROM table_offers WHERE user_id = ? AND status = 'active'"
+  ).get(userId).c > 0;
   const isSearching = hasOpenSearchActivity(userId);
   let mode = 'idle';
   if (isOffering) mode = 'offering';
   else if (isSearching) mode = 'searching';
-  return { mode, canSearch: !isOffering, canOffer: !isSearching };
+  return { mode, canSearch: true, canOffer: !isSearching }; // canSearch immer true, Zeitfenster-Check erst beim Discover-Call
 }
 
 module.exports = { canSearch, canOffer, getRoleStatus };

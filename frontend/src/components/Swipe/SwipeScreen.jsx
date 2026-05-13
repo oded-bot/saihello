@@ -212,6 +212,7 @@ export default function SwipeScreen() {
   const [searchApplied, setSearchApplied] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('alle');
   const [roleLocked, setRoleLocked] = useState(false);
+  const [conflictingOffer, setConflictingOffer] = useState(null);
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [activeSearch, setActiveSearch] = useState(null);
   const [showSeekerForm, setShowSeekerForm] = useState(false);
@@ -300,6 +301,7 @@ export default function SwipeScreen() {
       setCurrentIdx(0);
     } catch (err) {
       if (err.response?.data?.code === 'ROLE_LOCKED_OFFERING') {
+        setConflictingOffer(err.response.data.conflictingOffer || null);
         setRoleLocked(true);
       } else if (err.response?.status === 429) {
         toast.error(t('tooManyRequests'));
@@ -348,12 +350,75 @@ export default function SwipeScreen() {
   }
 
   if (roleLocked) {
+    const co = conflictingOffer;
+    const dateFormatted = co?.date
+      ? new Date(co.date + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
+      : null;
+
     return (
-      <div className="flex items-center justify-center h-[80vh]">
-        <div className="text-center px-8">
-          <PlusCircle size={48} className="text-tinder-pink mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('youAreOfferer')}</h3>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">{t('deactivateFirst')}</p>
+      <div className="flex flex-col h-[80vh] items-center justify-end pb-6 px-4">
+        {/* Dimmed top area */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center opacity-30">
+            <PlusCircle size={48} className="text-white mx-auto mb-3" />
+            <p className="text-white text-sm">Entdecken</p>
+          </div>
+        </div>
+
+        {/* Bottom Sheet */}
+        <div
+          className="w-full rounded-3xl p-6"
+          style={{ background: 'rgba(22,12,40,0.98)', border: '1.5px solid rgba(124,58,237,0.40)' }}
+        >
+          {/* Handle */}
+          <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5" />
+
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 text-xl"
+              style={{ background: 'rgba(124,58,237,0.2)' }}>
+              🎯
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-base leading-snug">Zeitfenster bereits belegt</h3>
+              <p className="text-white/60 text-sm mt-1 leading-relaxed">
+                Du hast für diesen Zeitraum schon einen Platz angeboten. Solange dein Angebot aktiv ist, kannst du nicht gleichzeitig in diesem Fenster suchen.
+              </p>
+            </div>
+          </div>
+
+          {/* Kollidierendes Angebot */}
+          {co && (
+            <div className="rounded-2xl px-4 py-3 mb-5 flex items-center gap-3"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <Clock size={15} className="text-white/50 shrink-0" />
+              <div>
+                <p className="text-white text-sm font-semibold">
+                  {dateFormatted || co.date}
+                </p>
+                <p className="text-white/50 text-xs mt-0.5">
+                  {co.timeFrom?.slice(0,5)} – {co.timeUntil?.slice(0,5)} Uhr
+                  {co.locationText ? ` · ${co.locationText}` : ''}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <button
+              onClick={() => { setRoleLocked(false); window.location.href = '/offer'; }}
+              className="w-full py-3.5 rounded-2xl text-white font-bold text-sm"
+              style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
+            >
+              Mein Angebot bearbeiten
+            </button>
+            <button
+              onClick={() => { setRoleLocked(false); setConflictingOffer(null); }}
+              className="w-full py-3.5 rounded-2xl text-white/70 font-semibold text-sm"
+              style={{ background: 'rgba(255,255,255,0.06)' }}
+            >
+              Anderes Zeitfenster suchen
+            </button>
+          </div>
         </div>
       </div>
     );

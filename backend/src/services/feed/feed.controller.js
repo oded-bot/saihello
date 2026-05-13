@@ -1,6 +1,9 @@
 const { v4: uuid } = require('uuid');
 const db = require('../../config/database');
 
+let io;
+function setIo(ioInstance) { io = ioInstance; }
+
 function getFeed(req, res) {
   try {
     const userId = req.user.id;
@@ -90,7 +93,11 @@ function addComment(req, res) {
     db.prepare('INSERT INTO life_feed_comments (id, video_id, user_id, text) VALUES (?, ?, ?, ?)').run(id, videoId, userId, text.trim());
 
     const profile = db.prepare('SELECT display_name, photo_1 as photo, emoji FROM profiles WHERE user_id = ?').get(userId);
-    res.status(201).json({ id, text: text.trim(), created_at: new Date().toISOString(), ...profile });
+    const comment = { id, text: text.trim(), created_at: new Date().toISOString(), ...profile };
+
+    if (io) io.to(`video:${videoId}`).emit('new_comment', { videoId, comment });
+
+    res.status(201).json(comment);
   } catch (err) {
     console.error('addComment Fehler:', err);
     res.status(500).json({ error: 'Kommentar fehlgeschlagen' });
@@ -111,4 +118,4 @@ function deleteVideo(req, res) {
   }
 }
 
-module.exports = { getFeed, uploadVideo, toggleLike, getComments, addComment, deleteVideo };
+module.exports = { getFeed, uploadVideo, toggleLike, getComments, addComment, deleteVideo, setIo };

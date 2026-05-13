@@ -17,7 +17,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const offerIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
 });
@@ -29,13 +29,13 @@ const ownPinIcon = new L.Icon({
 });
 
 const seekerIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
 });
 
 function createPinIcon(baseIcon, emoji, photoUrl) {
-  const color = baseIcon === ownPinIcon ? 'green' : baseIcon === seekerIcon ? 'red' : 'blue';
+  const color = baseIcon === ownPinIcon ? 'green' : baseIcon === seekerIcon ? 'violet' : 'grey';
   const markerImg = `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`;
 
   if (emoji) {
