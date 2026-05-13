@@ -18,8 +18,8 @@ export default function HowItWorksModal({ onClose }) {
           <div className="flex gap-3">
             <span className="text-xl shrink-0">🎉</span>
             <div>
-              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Einladung aussprechen</p>
-              <p>Du feierst heute Abend und willst Leute dabei haben? Erstelle ein Angebot mit Ort, Datum und Uhrzeit – und finde passende Mitfeiernde.</p>
+              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Ich lade ein!</p>
+              <p>Du hast heute Abend was vor und willst Leute dabei haben? Erstelle eine Einladung mit Ort, Datum und Uhrzeit – und finde passende Leute.</p>
             </div>
           </div>
           <div className="flex gap-3">

@@ -163,21 +163,6 @@ export default function HomeScreen() {
       {/* Action Cards */}
       <div className="space-y-3">
 
-        {/* Where's the heat */}
-        <button
-          onClick={() => setShowHeatModal(true)}
-          className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform"
-          style={{ background: 'linear-gradient(135deg, #EA580C 0%, #EF4444 100%)' }}
-        >
-          <div className="w-12 h-12 bg-white/15 rounded-2xl flex items-center justify-center shrink-0 text-2xl">
-            🔥
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-white">Wo ist was los?</h3>
-            <p className="text-white/60 text-xs">Zeig mir die heiße Zone</p>
-          </div>
-        </button>
-
         <div className="flex gap-3">
           {/* About yesterday */}
           {FEATURES.yesterday && (
@@ -197,6 +182,21 @@ export default function HomeScreen() {
 
           <div className="flex-1 flex flex-col gap-3">
 
+            {/* Platz anbieten */}
+            <button
+              onClick={() => navigate('/offer')}
+              className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition"
+              style={{ background: 'linear-gradient(135deg, #6B7280 0%, #D1D5DB 50%, #9CA3AF 100%)' }}
+            >
+              <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                <PlusCircle size={22} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">{t('offerPlace')}</h3>
+                <p className="text-white/60 text-xs">{t('offerPlaceDesc')}</p>
+              </div>
+            </button>
+
             {/* Platz finden */}
             <button
               onClick={() => navigate('/discover')}
@@ -211,26 +211,12 @@ export default function HomeScreen() {
               </div>
             </button>
 
-            {/* Platz anbieten */}
-            <button
-              onClick={() => navigate('/offer')}
-              className="w-full glass rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition"
-            >
-              <div className="w-11 h-11 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
-                <PlusCircle size={22} className="text-white/70" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">{t('offerPlace')}</h3>
-                <p className="text-white/40 text-xs">{t('offerPlaceDesc')}</p>
-              </div>
-            </button>
-
             {/* Life Feed */}
             {FEATURES.lifeFeed && (
               <button
                 onClick={() => navigate('/feed')}
                 className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition"
-                style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%)' }}
               >
                 <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
                   <span className="text-xl">🎥</span>
@@ -241,6 +227,21 @@ export default function HomeScreen() {
                 </div>
               </button>
             )}
+
+            {/* Where's the heat */}
+            <button
+              onClick={() => setShowHeatModal(true)}
+              className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform"
+              style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)' }}
+            >
+              <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0 text-xl">
+                🔥
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Wo ist was los?</h3>
+                <p className="text-white/60 text-xs">Zeig mir die heiße Zone</p>
+              </div>
+            </button>
 
           </div>
         </div>

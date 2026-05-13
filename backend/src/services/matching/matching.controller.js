@@ -108,13 +108,13 @@ function getMatches(req, res) {
     const matches = db.prepare(`
       SELECT m.id, m.offer_id, m.seats_granted, m.status, m.created_at,
              m.offerer_id, m.seeker_id,
-             o.date, o.time_from, o.time_until,
-             t.name as tent_name, t.slug as tent_slug,
+             o.date, o.time_from, o.time_until, o.location_text,
              CASE WHEN m.offerer_id = ? THEN sp.display_name ELSE op.display_name END as partner_name,
-             CASE WHEN m.offerer_id = ? THEN sp.photo_1 ELSE op.photo_1 END as partner_photo,
-             CASE WHEN m.offerer_id = ? THEN sp.age ELSE op.age END as partner_age,
-             CASE WHEN m.offerer_id = ? THEN sp.gender ELSE op.gender END as partner_gender,
-             CASE WHEN m.offerer_id = ? THEN sp.is_verified ELSE op.is_verified END as partner_verified,
+             CASE WHEN m.offerer_id = ? THEN sp.display_name ELSE op.display_name END as other_display_name,
+             CASE WHEN m.offerer_id = ? THEN sp.photo_1 ELSE op.photo_1 END as other_photo,
+             CASE WHEN m.offerer_id = ? THEN sp.age ELSE op.age END as other_age,
+             CASE WHEN m.offerer_id = ? THEN sp.gender ELSE op.gender END as other_gender,
+             CASE WHEN m.offerer_id = ? THEN sp.is_verified ELSE op.is_verified END as other_verified,
              CASE WHEN m.offerer_id = ? THEN 'offerer' ELSE 'seeker' END as my_role,
              (SELECT direction FROM swipes s WHERE s.swiper_id = m.seeker_id AND s.target_offer_id = m.offer_id LIMIT 1) as swipe_direction,
              (SELECT content FROM messages msg WHERE msg.match_id = m.id ORDER BY msg.created_at DESC LIMIT 1) as last_message,
@@ -122,13 +122,12 @@ function getMatches(req, res) {
              (SELECT COUNT(*) FROM messages msg WHERE msg.match_id = m.id AND msg.sender_id != ? AND msg.is_read = 0) as unread_count
       FROM matches m
       JOIN table_offers o ON o.id = m.offer_id
-      JOIN tents t ON t.id = o.tent_id
       JOIN profiles op ON op.user_id = m.offerer_id
       JOIN profiles sp ON sp.user_id = m.seeker_id
       WHERE (m.offerer_id = ? OR m.seeker_id = ?)
         AND m.status IN ('active', 'invited', 'confirmed')
       ORDER BY last_message_at DESC, m.created_at DESC
-    `).all(userId, userId, userId, userId, userId, userId, userId, userId, userId);
+    `).all(userId, userId, userId, userId, userId, userId, userId, userId, userId, userId);
 
     res.json(matches);
   } catch (err) {
@@ -143,9 +142,8 @@ function getMatchDetail(req, res) {
     const userId = req.user.id;
 
     const match = db.prepare(`
-      SELECT m.*, o.date, o.time_from, o.time_until, o.description as offer_description,
+      SELECT m.*, o.date, o.time_from, o.time_until, o.location_text,
              o.group_description, o.photo_url as offer_photo,
-             t.name as tent_name, t.slug as tent_slug,
              op.display_name as offerer_name, op.photo_1 as offerer_photo,
              op.age as offerer_age, op.gender as offerer_gender, op.bio as offerer_bio,
              op.is_verified as offerer_verified, op.rating as offerer_rating,
@@ -154,7 +152,6 @@ function getMatchDetail(req, res) {
              sp.is_verified as seeker_verified, sp.rating as seeker_rating
       FROM matches m
       JOIN table_offers o ON o.id = m.offer_id
-      JOIN tents t ON t.id = o.tent_id
       JOIN profiles op ON op.user_id = m.offerer_id
       JOIN profiles sp ON sp.user_id = m.seeker_id
       WHERE m.id = ? AND (m.offerer_id = ? OR m.seeker_id = ?)
@@ -192,17 +189,14 @@ function confirmMatch(req, res) {
       .run(seatsToGrant, matchId);
 
     const offer = db.prepare(`
-      SELECT o.id, o.date, o.time_from, o.time_until, o.available_seats,
-             t.name as tent_name
-      FROM table_offers o
-      JOIN tents t ON t.id = o.tent_id
-      WHERE o.id = ?
+      SELECT id, date, time_from, time_until, available_seats, location_text
+      FROM table_offers WHERE id = ?
     `).get(match.offer_id);
 
     const offererProfile = db.prepare('SELECT display_name FROM profiles WHERE user_id = ?').get(match.offerer_id);
 
     // Einladungs-Nachricht
-    let inviteMsg = `🎉 EINLADUNG!\n\n📍 ${offer.tent_name}\n📅 ${offer.date}\n🕐 ${offer.time_from} – ${offer.time_until}\n💺 ${seatsToGrant} Platz/Plätze für dich`;
+    let inviteMsg = `🎉 EINLADUNG!\n\n📍 ${offer.location_text || 'Treffpunkt'}\n📅 ${offer.date}\n🕐 ${offer.time_from} – ${offer.time_until}\n💺 ${seatsToGrant} Platz/Plätze für dich`;
     if (personalMsg) {
       inviteMsg += `\n\n💬 ${personalMsg}`;
     }
@@ -283,7 +277,7 @@ function acceptInvite(req, res) {
     db.prepare(`
       INSERT INTO messages (id, match_id, sender_id, content, message_type)
       VALUES (?, ?, ?, ?, 'system')
-    `).run(uuid(), matchId, userId, `✅ ${seekerProfile.display_name} hat die Einladung angenommen! Wir sehen uns auf der Wiesn!`);
+    `).run(uuid(), matchId, userId, `✅ ${seekerProfile.display_name} hat die Einladung angenommen! Viel Spaß heute Abend!`);
 
     if (_io) leaderboard.broadcast(_io);
 
@@ -415,11 +409,10 @@ function getReceivedLikes(req, res) {
     const likes = db.prepare(`
       SELECT s.id, s.direction, s.created_at,
              s.target_offer_id as offer_id,
-             o.date, o.time_from, t.name as tent_name,
+             o.date, o.time_from, o.location_text,
              p.display_name, p.photo_1, p.age, p.gender, p.is_verified, p.rating, p.bio
       FROM swipes s
       JOIN table_offers o ON o.id = s.target_offer_id
-      JOIN tents t ON t.id = o.tent_id
       JOIN profiles p ON p.user_id = s.swiper_id
       WHERE s.target_user_id = ?
         AND s.direction IN ('like', 'superlike')

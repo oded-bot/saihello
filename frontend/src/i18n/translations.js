@@ -2,9 +2,9 @@ export const translations = {
   de: {
     // Home
     greeting: 'Hey',
-    findPlace: 'Einladung finden',
-    findPlaceDesc: 'Swipe durch Einladungen in deiner Nähe',
-    offerPlace: 'Einladung aussprechen',
+    findPlace: 'Ich komme dazu!',
+    findPlaceDesc: 'Swipe durch Angebote in deiner Nähe',
+    offerPlace: 'Ich lade ein!',
     offerPlaceDesc: 'Lade andere zu dir ein',
     activeOffers: 'Aktive Angebote',
     yourMatches: 'Deine Matches',
@@ -34,7 +34,13 @@ export const translations = {
     pleaseSelectGender: 'Bitte Geschlecht wählen',
 
     // Discover
-    discover: 'Entdecken',
+    discover: 'Ich komme dazu!',
+    mySearch: 'Meine Suche',
+    activateSearch: 'Suche aktivieren',
+    searchActive: 'Suche aktiv',
+    deleteSearch: 'Suche beenden',
+    searchCreated: 'Suche aktiviert!',
+    searchDeleted: 'Suche beendet',
     noMoreOffers: 'Keine weiteren Angebote',
     checkBackLater: 'Schau später nochmal vorbei oder erstelle selbst ein Angebot!',
     refresh: 'Aktualisieren',
@@ -63,7 +69,7 @@ export const translations = {
     loadOffersFailed: 'Angebote laden fehlgeschlagen',
 
     // Offer
-    offerTitle: 'Platz anbieten',
+    offerTitle: 'Ich lade ein',
     photoRequired: 'Foto von dir / eurer Gruppe *',
     camera: 'Kamera',
     gallery: 'Galerie',
@@ -83,7 +89,7 @@ export const translations = {
     leaveEmpty: 'Leer lassen = egal',
     description: 'Beschreibung (optional)',
     descriptionPlaceholder: 'z.B. Wir sind 5 Freunde, Mitte 20, feiern Geburtstag...',
-    publishOffer: 'Angebot veröffentlichen',
+    publishOffer: 'Einladung veröffentlichen',
     publishing: 'Wird erstellt...',
     yourOffers: 'Deine Angebote',
     active: 'Aktiv',
@@ -195,7 +201,7 @@ export const translations = {
 
     // Nav
     home: 'Home',
-    offer: 'Anbieten',
+    offer: 'Einladen',
     chat: 'Chat',
     profile: 'Profil',
 
@@ -232,8 +238,8 @@ export const translations = {
     landingSubtitle: 'Entdecke, was heute in deiner Stadt los ist',
     landingCTA: 'Jetzt mitmachen',
     landingDescription: 'SaiHello verbindet Menschen, die feiern wollen. Finde Einladungen in deiner Nähe, teile deine Momente und triff neue Leute.',
-    landingFeature1Title: 'Einladung finden',
-    landingFeature1Desc: 'Entdecke, wer in deiner Nähe feiert und eine Einladung ausspricht.',
+    landingFeature1Title: 'Ich komme dazu!',
+    landingFeature1Desc: 'Entdecke, wer in deiner Nähe etwas vorhat und swipe dich rein.',
     landingFeature2Title: 'Chatten & Kennenlernen',
     landingFeature2Desc: 'Schreib ihnen direkt und verabredet euch für den Abend.',
     landingFeature3Title: 'Momente teilen',
@@ -300,9 +306,9 @@ export const translations = {
 
   en: {
     greeting: 'Hey',
-    findPlace: 'Find an Invitation',
-    findPlaceDesc: 'Swipe through invitations near you',
-    offerPlace: 'Invite Someone',
+    findPlace: 'Count me in!',
+    findPlaceDesc: 'Swipe through offers near you',
+    offerPlace: 'Join me!',
     offerPlaceDesc: 'Invite others to join you',
     activeOffers: 'Active Offers',
     yourMatches: 'Your Matches',
@@ -330,7 +336,13 @@ export const translations = {
     welcomeWiesn: 'Welcome to SaiHello!',
     pleaseSelectGender: 'Please select gender',
 
-    discover: 'Discover',
+    discover: 'Count me in!',
+    mySearch: 'My Search',
+    activateSearch: 'Activate search',
+    searchActive: 'Search active',
+    deleteSearch: 'End search',
+    searchCreated: 'Search activated!',
+    searchDeleted: 'Search ended',
     noMoreOffers: 'No more offers',
     checkBackLater: 'Check back later or create your own offer!',
     refresh: 'Refresh',
@@ -358,7 +370,7 @@ export const translations = {
     tooManyRequests: 'Too many requests. Please wait.',
     loadOffersFailed: 'Failed to load offers',
 
-    offerTitle: 'Offer a Seat',
+    offerTitle: 'Join me',
     photoRequired: 'Photo of you / your group *',
     camera: 'Camera',
     gallery: 'Gallery',
@@ -521,8 +533,8 @@ export const translations = {
     landingSubtitle: 'Discover what\'s happening in your city tonight',
     landingCTA: 'Join now',
     landingDescription: 'SaiHello connects people who want to celebrate. Find invitations near you, share your moments and meet new people.',
-    landingFeature1Title: 'Find an Invitation',
-    landingFeature1Desc: 'Discover who\'s celebrating near you and inviting people to join.',
+    landingFeature1Title: 'Count me in!',
+    landingFeature1Desc: 'Discover what\'s happening near you and swipe your way in.',
     landingFeature2Title: 'Chat & Connect',
     landingFeature2Desc: 'Message them directly and make plans for the evening.',
     landingFeature3Title: 'Share Moments',

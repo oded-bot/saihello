@@ -16,7 +16,7 @@ class MapErrorBoundary extends Component {
     return this.props.children;
   }
 }
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import useAuthStore from './context/authStore';
 import useDarkMode from './hooks/useDarkMode';
 import { connectSocket } from './utils/socket';
@@ -93,7 +93,6 @@ function AppLayout({ children }) {
       <div className="pb-20">
         {children}
       </div>
-      <BottomNav />
     </div>
   );
 }
@@ -109,6 +108,12 @@ export default function App() {
   useEffect(() => {
     if (token) connectSocket();
   }, [token]);
+
+  const { pathname } = useLocation();
+  const hideNav = !token
+    || pathname.startsWith('/admin')
+    || /^\/chat\/.+/.test(pathname)
+    || pathname === '/feed';
 
   return (
     <div className="bg-black min-h-screen dark-transition">
@@ -229,6 +234,7 @@ export default function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to={token ? "/home" : "/"} replace />} />
       </Routes>
+      {!hideNav && <BottomNav />}
     </div>
   );
 }

@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const { v4: uuid } = require('uuid');
 const { authMiddleware } = require('../../middleware/auth');
-const { getFeed, uploadVideo, reactToVideo, deleteVideo } = require('./feed.controller');
+const { getFeed, uploadVideo, toggleLike, getComments, addComment, deleteVideo } = require('./feed.controller');
 
 const router = express.Router();
 
@@ -33,7 +33,9 @@ const videoUpload = multer({
 
 router.get('/', authMiddleware, getFeed);
 router.post('/upload', authMiddleware, videoUpload.single('video'), uploadVideo);
-router.post('/:videoId/react', authMiddleware, reactToVideo);
+router.post('/:videoId/like', authMiddleware, toggleLike);
+router.get('/:videoId/comments', authMiddleware, getComments);
+router.post('/:videoId/comment', authMiddleware, addComment);
 router.delete('/:videoId', authMiddleware, deleteVideo);
 
 module.exports = router;

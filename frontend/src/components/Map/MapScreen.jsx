@@ -5,7 +5,6 @@ import L from 'leaflet';
 import { ChevronLeft } from 'lucide-react';
 import api from '../../utils/api';
 import useAuthStore from '../../context/authStore';
-import BottomNav from '../Shared/BottomNav';
 import BadgeDisplay from '../Badges/BadgeDisplay';
 import { FEATURES } from '../../config/features';
 import { BADGES } from '../Badges/badgeConfig';
@@ -419,13 +418,12 @@ export default function MapScreen() {
           </div>
         )}
 
-        <BottomNav />
       </div>
     );
   }
 
   return (
-    <div className="relative w-full overflow-hidden" style={{ height: 'calc(100vh - 64px)' }}>
+    <div className="relative w-full overflow-hidden" style={{ height: '100vh' }}>
       <MapContainer
         center={defaultCenter}
         zoom={14}
@@ -452,32 +450,32 @@ export default function MapScreen() {
       {/* Top overlay */}
       <div className="fixed left-0 right-0 px-4 z-[9999] space-y-2" style={{ top: 0, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
         {(myStatus === 'search' || myStatus === 'offer') && (
-          <div className="flex bg-white/90 backdrop-blur-sm rounded-2xl shadow overflow-hidden">
-            <button className="flex-1 py-2 text-sm font-semibold text-blue-900 border-b-2 border-blue-900">Karte</button>
+          <div className="flex rounded-2xl overflow-hidden" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>
+            <button className="flex-1 py-2 text-sm font-semibold text-white border-b-2 border-violet-500">Karte</button>
             <button
               onClick={() => { setViewMode('feed'); loadFeed(); }}
-              className="flex-1 py-2 text-sm font-semibold text-gray-400"
+              className="flex-1 py-2 text-sm font-semibold text-white/40"
             >Feed</button>
           </div>
         )}
         {loading ? (
-          <div className="bg-white rounded-2xl px-4 py-3 shadow text-sm text-gray-500 text-center">Laden...</div>
+          <div className="rounded-2xl px-4 py-3 text-sm text-white/50 text-center" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>Laden...</div>
         ) : myStatus ? (
-          <div className="bg-white rounded-2xl px-4 py-3 shadow overflow-hidden">
+          <div className="rounded-2xl px-4 py-3 overflow-hidden" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-gray-500 font-medium">
+                <p className="text-xs text-white/50 font-medium">
                   {myStatus === 'offer' ? 'Dein aktives Angebot' : 'Deine aktive Suche'}
                 </p>
-                <p className="text-sm font-semibold text-blue-900 truncate">
+                <p className="text-sm font-semibold text-white truncate">
                   {myItem?.location_text || `${myItem?.location_lat?.toFixed(4)}, ${myItem?.location_lng?.toFixed(4)}`}
                 </p>
-                <p className="text-xs text-gray-500">{myItem?.date} · {myItem?.time_from}–{myItem?.time_until}</p>
+                <p className="text-xs text-white/50">{myItem?.date} · {myItem?.time_from}–{myItem?.time_until}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <div className="text-right w-16">
-                  <p className="text-2xl font-bold text-blue-900">{filteredPins.filter(p => !p.isOwn).length}</p>
-                  <p className="text-xs text-gray-500 leading-tight">
+                  <p className="text-2xl font-bold text-white">{filteredPins.filter(p => !p.isOwn).length}</p>
+                  <p className="text-xs text-white/50 leading-tight">
                     {myStatus === 'offer' ? 'Suchende' : 'Angebote'}
                   </p>
                 </div>
@@ -519,16 +517,17 @@ export default function MapScreen() {
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl px-4 py-3 shadow text-center">
-            <p className="text-sm text-gray-600 mb-3">Was möchtest du tun?</p>
+          <div className="rounded-2xl px-4 py-3 text-center" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>
+            <p className="text-sm text-white/60 mb-3">Was möchtest du tun?</p>
             <div className="flex gap-2">
               <button onClick={() => navigate('/offer')}
-                className="flex-1 bg-blue-900 text-white py-2 rounded-xl text-sm font-semibold">
-                Platz anbieten
+                className="flex-1 tinder-gradient text-white py-2.5 rounded-xl text-sm font-bold">
+                Ich lade ein!
               </button>
               <button onClick={() => navigate('/discover')}
-                className="flex-1 border border-blue-900 text-blue-900 py-2 rounded-xl text-sm font-semibold">
-                Platz suchen
+                className="flex-1 text-white py-2.5 rounded-xl text-sm font-bold"
+                style={{ border: '1.5px solid rgba(124,58,237,0.65)', background: 'rgba(124,58,237,0.15)' }}>
+                Ich komme dazu!
               </button>
             </div>
           </div>
@@ -587,13 +586,12 @@ export default function MapScreen() {
       <button
         onClick={() => navigate(-1)}
         className="fixed left-4 z-[1001] flex items-center gap-1 bg-white/90 backdrop-blur-sm text-gray-700 rounded-xl px-3 py-2 shadow text-sm font-medium"
-        style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px) + 12px)' }}
+        style={{ bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
       >
         <ChevronLeft size={18} />
         Zurück
       </button>
 
-      <BottomNav />
     </div>
   );
 }

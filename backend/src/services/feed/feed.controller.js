@@ -1,23 +1,17 @@
 const { v4: uuid } = require('uuid');
 const db = require('../../config/database');
 
-const REACTION_TYPES = ['thumbs_up', 'laughing', 'super_drauf', 'gute_unterhaltung'];
-
 function getFeed(req, res) {
   try {
     const userId = req.user.id;
     const videos = db.prepare(`
       SELECT v.id, v.video_url, v.caption, v.created_at,
              p.display_name, p.photo_1 as uploader_photo, p.emoji as uploader_emoji,
-             (SELECT COUNT(*) FROM life_feed_reactions WHERE video_id = v.id AND reaction_type = 'thumbs_up') as count_thumbs_up,
-             (SELECT COUNT(*) FROM life_feed_reactions WHERE video_id = v.id AND reaction_type = 'laughing') as count_laughing,
-             (SELECT COUNT(*) FROM life_feed_reactions WHERE video_id = v.id AND reaction_type = 'super_drauf') as count_super_drauf,
-             (SELECT COUNT(*) FROM life_feed_reactions WHERE video_id = v.id AND reaction_type = 'gute_unterhaltung') as count_gute_unterhaltung
+             (SELECT COUNT(*) FROM life_feed_likes WHERE video_id = v.id) as like_count,
+             (SELECT COUNT(*) FROM life_feed_comments WHERE video_id = v.id) as comment_count,
+             (SELECT 1 FROM life_feed_likes WHERE video_id = v.id AND user_id = ?) as my_like
       FROM life_feed_videos v
       JOIN profiles p ON p.user_id = v.user_id
-      WHERE NOT EXISTS (
-        SELECT 1 FROM life_feed_reactions WHERE video_id = v.id AND user_id = ?
-      )
       ORDER BY v.created_at DESC
     `).all(userId);
 
@@ -30,17 +24,11 @@ function getFeed(req, res) {
 
 function uploadVideo(req, res) {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'Keine Videodatei hochgeladen' });
-    }
+    if (!req.file) return res.status(400).json({ error: 'Keine Videodatei hochgeladen' });
     const videoId = uuid();
     const videoUrl = `/uploads/${req.file.filename}`;
     const caption = req.body.caption || null;
-
-    db.prepare(
-      'INSERT INTO life_feed_videos (id, user_id, video_url, caption) VALUES (?, ?, ?, ?)'
-    ).run(videoId, req.user.id, videoUrl, caption);
-
+    db.prepare('INSERT INTO life_feed_videos (id, user_id, video_url, caption) VALUES (?, ?, ?, ?)').run(videoId, req.user.id, videoUrl, caption);
     res.status(201).json({ success: true, videoId, videoUrl });
   } catch (err) {
     console.error('uploadVideo Fehler:', err);
@@ -48,31 +36,64 @@ function uploadVideo(req, res) {
   }
 }
 
-function reactToVideo(req, res) {
+function toggleLike(req, res) {
   try {
     const { videoId } = req.params;
-    const { reaction } = req.body;
     const userId = req.user.id;
+    const video = db.prepare('SELECT id FROM life_feed_videos WHERE id = ?').get(videoId);
+    if (!video) return res.status(404).json({ error: 'Video nicht gefunden' });
 
-    if (!REACTION_TYPES.includes(reaction)) {
-      return res.status(400).json({ error: 'Ungültige Reaktion' });
+    const existing = db.prepare('SELECT id FROM life_feed_likes WHERE video_id = ? AND user_id = ?').get(videoId, userId);
+    if (existing) {
+      db.prepare('DELETE FROM life_feed_likes WHERE video_id = ? AND user_id = ?').run(videoId, userId);
+    } else {
+      db.prepare('INSERT INTO life_feed_likes (video_id, user_id) VALUES (?, ?)').run(videoId, userId);
     }
+    const likeCount = db.prepare('SELECT COUNT(*) as n FROM life_feed_likes WHERE video_id = ?').get(videoId).n;
+    res.json({ liked: !existing, likeCount });
+  } catch (err) {
+    console.error('toggleLike Fehler:', err);
+    res.status(500).json({ error: 'Like fehlgeschlagen' });
+  }
+}
+
+function getComments(req, res) {
+  try {
+    const { videoId } = req.params;
+    const comments = db.prepare(`
+      SELECT c.id, c.text, c.created_at,
+             p.display_name, p.photo_1 as photo, p.emoji
+      FROM life_feed_comments c
+      JOIN profiles p ON p.user_id = c.user_id
+      WHERE c.video_id = ?
+      ORDER BY c.created_at ASC
+    `).all(videoId);
+    res.json(comments);
+  } catch (err) {
+    console.error('getComments Fehler:', err);
+    res.status(500).json({ error: 'Kommentare laden fehlgeschlagen' });
+  }
+}
+
+function addComment(req, res) {
+  try {
+    const { videoId } = req.params;
+    const { text } = req.body;
+    const userId = req.user.id;
+    if (!text || !text.trim()) return res.status(400).json({ error: 'Kein Text' });
+    if (text.length > 300) return res.status(400).json({ error: 'Zu lang (max. 300 Zeichen)' });
 
     const video = db.prepare('SELECT id FROM life_feed_videos WHERE id = ?').get(videoId);
     if (!video) return res.status(404).json({ error: 'Video nicht gefunden' });
 
-    const existing = db.prepare('SELECT reaction_type FROM life_feed_reactions WHERE video_id = ? AND user_id = ?').get(videoId, userId);
+    const id = uuid();
+    db.prepare('INSERT INTO life_feed_comments (id, video_id, user_id, text) VALUES (?, ?, ?, ?)').run(id, videoId, userId, text.trim());
 
-    if (existing) {
-      return res.status(409).json({ error: 'Du hast bereits auf dieses Video reagiert' });
-    }
-
-    db.prepare('INSERT INTO life_feed_reactions (id, video_id, user_id, reaction_type) VALUES (?, ?, ?, ?)').run(uuid(), videoId, userId, reaction);
-
-    res.json({ success: true });
+    const profile = db.prepare('SELECT display_name, photo_1 as photo, emoji FROM profiles WHERE user_id = ?').get(userId);
+    res.status(201).json({ id, text: text.trim(), created_at: new Date().toISOString(), ...profile });
   } catch (err) {
-    console.error('reactToVideo Fehler:', err);
-    res.status(500).json({ error: 'Reaktion fehlgeschlagen' });
+    console.error('addComment Fehler:', err);
+    res.status(500).json({ error: 'Kommentar fehlgeschlagen' });
   }
 }
 
@@ -90,4 +111,4 @@ function deleteVideo(req, res) {
   }
 }
 
-module.exports = { getFeed, uploadVideo, reactToVideo, deleteVideo };
+module.exports = { getFeed, uploadVideo, toggleLike, getComments, addComment, deleteVideo };

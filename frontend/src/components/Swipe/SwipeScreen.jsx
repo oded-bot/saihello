@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
-import { MapPin, Clock, Users, Star, X, Heart, Sparkles, Flame, Filter, RefreshCw, PlusCircle, ChevronDown, Search } from 'lucide-react';
+import { MapPin, Clock, Users, Star, X, Heart, Flame, Filter, RefreshCw, PlusCircle, ChevronDown, Search, ChevronUp } from 'lucide-react';
 import api from '../../utils/api';
 import useLanguage from '../../hooks/useLanguage';
 import toast from 'react-hot-toast';
 import ImageLightbox from '../Shared/ImageLightbox';
+import LocationPicker from '../Shared/LocationPicker';
 
 function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
   const { t } = useLanguage();
@@ -214,14 +213,62 @@ export default function SwipeScreen() {
   const [categoryFilter, setCategoryFilter] = useState('alle');
   const [roleLocked, setRoleLocked] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [activeSearch, setActiveSearch] = useState(null);
+  const [showSeekerForm, setShowSeekerForm] = useState(false);
+  const [seekerForm, setSeekerForm] = useState({ date: '', timeFrom: '', timeUntil: '' });
+  const [seekerLocation, setSeekerLocation] = useState({ locationText: '', locationLat: null, locationLng: null });
+  const [seekerLoading, setSeekerLoading] = useState(false);
   const pollRef = useRef(null);
   const { t } = useLanguage();
 
   useEffect(() => {
     loadOffers();
+    loadActiveSearch();
     pollRef.current = setInterval(refreshOffers, 10000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
+
+  async function loadActiveSearch() {
+    try {
+      const { data } = await api.get('/seeker/my');
+      setActiveSearch(data);
+    } catch (err) {}
+  }
+
+  async function activateSearch() {
+    if (!seekerLocation.locationText && seekerLocation.locationLat == null) {
+      toast.error('Bitte einen Ort angeben.');
+      return;
+    }
+    setSeekerLoading(true);
+    try {
+      await api.post('/seeker', {
+        locationText: seekerLocation.locationText || undefined,
+        locationLat: seekerLocation.locationLat || undefined,
+        locationLng: seekerLocation.locationLng || undefined,
+        date: seekerForm.date || undefined,
+        timeFrom: seekerForm.timeFrom || undefined,
+        timeUntil: seekerForm.timeUntil || undefined,
+      });
+      toast.success(t('searchCreated'));
+      await loadActiveSearch();
+      setShowSeekerForm(false);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Fehler beim Aktivieren der Suche');
+    } finally {
+      setSeekerLoading(false);
+    }
+  }
+
+  async function deactivateSearch() {
+    try {
+      await api.delete('/seeker/my');
+      setActiveSearch(null);
+      toast.success(t('searchDeleted'));
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Fehler');
+    }
+  }
 
   function buildQuery(overrideCategory) {
     const params = new URLSearchParams();
@@ -343,6 +390,98 @@ export default function SwipeScreen() {
           </button>
         </div>
       </div>
+
+      {/* Seeker-Panel */}
+      {activeSearch ? (
+        <div className="flex items-center justify-between bg-app-violet/10 border border-app-violet/30 rounded-2xl px-4 py-3 mb-3">
+          <div>
+            <p className="text-xs text-app-violet font-semibold">{t('searchActive')}</p>
+            <p className="text-sm text-white truncate max-w-[200px]">{activeSearch.location_text || 'Mein Standort'}</p>
+          </div>
+          <button
+            onClick={deactivateSearch}
+            className="w-8 h-8 rounded-full bg-dark-elevated flex items-center justify-center"
+          >
+            <X size={16} className="text-white/60" />
+          </button>
+        </div>
+      ) : (
+        <div className="mb-3">
+          <button
+            onClick={() => setShowSeekerForm(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 glass rounded-2xl border border-white/10 active:scale-[0.99] transition"
+          >
+            <div className="flex items-center gap-2">
+              <Search size={16} className="text-app-violet" />
+              <span className="text-sm font-semibold text-white">{t('mySearch')}</span>
+            </div>
+            {showSeekerForm ? <ChevronUp size={16} className="text-white/40" /> : <ChevronDown size={16} className="text-white/40" />}
+          </button>
+
+          {showSeekerForm && (
+            <div className="mt-2 bg-dark-card rounded-2xl p-4 border border-dark-separator space-y-3">
+              <LocationPicker onLocationChange={setSeekerLocation} />
+
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">{t('date')} ({t('optional')})</label>
+                <input
+                  type="date"
+                  value={seekerForm.date}
+                  onChange={(e) => setSeekerForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full px-3 py-2 bg-dark-elevated border border-dark-separator rounded-xl text-white text-sm focus:outline-none focus:border-app-violet"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t('timeFrom')} ({t('optional')})</label>
+                  <div className="relative">
+                    <select
+                      value={seekerForm.timeFrom}
+                      onChange={(e) => setSeekerForm(f => ({ ...f, timeFrom: e.target.value }))}
+                      className="w-full px-3 py-2 bg-dark-elevated border border-dark-separator rounded-xl text-white text-sm focus:outline-none focus:border-app-violet appearance-none"
+                    >
+                      <option value="">--:--</option>
+                      {Array.from({ length: 48 }).map((_, i) => {
+                        const h = String(Math.floor(i / 2)).padStart(2, '0');
+                        const m = i % 2 === 0 ? '00' : '30';
+                        return <option key={i} value={`${h}:${m}`}>{h}:{m}</option>;
+                      })}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t('timeUntil')} ({t('optional')})</label>
+                  <div className="relative">
+                    <select
+                      value={seekerForm.timeUntil}
+                      onChange={(e) => setSeekerForm(f => ({ ...f, timeUntil: e.target.value }))}
+                      className="w-full px-3 py-2 bg-dark-elevated border border-dark-separator rounded-xl text-white text-sm focus:outline-none focus:border-app-violet appearance-none"
+                    >
+                      <option value="">--:--</option>
+                      {Array.from({ length: 48 }).map((_, i) => {
+                        const h = String(Math.floor(i / 2)).padStart(2, '0');
+                        const m = i % 2 === 0 ? '00' : '30';
+                        return <option key={i} value={`${h}:${m}`}>{h}:{m}</option>;
+                      })}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={activateSearch}
+                disabled={seekerLoading}
+                className="w-full py-3 tinder-gradient text-white font-bold rounded-2xl text-sm active:scale-95 transition disabled:opacity-50 gradient-glow"
+              >
+                {seekerLoading ? '...' : t('activateSearch')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Kategorie-Filter Chips */}
       <div className="flex gap-2 overflow-x-auto pb-1 mb-3 no-scrollbar">

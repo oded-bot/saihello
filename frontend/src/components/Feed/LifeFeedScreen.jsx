@@ -1,88 +1,99 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Plus, X } from 'lucide-react';
+import { ChevronLeft, Plus, Heart, MessageCircle, Send, X } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 
-const REACTIONS = [
-  { type: 'thumbs_up',        label: '👍',                    emoji: true },
-  { type: 'laughing',         label: '😄',                    emoji: true },
-  { type: 'super_drauf',      label: 'Ihr seid super drauf!', emoji: false },
-  { type: 'gute_unterhaltung',label: 'Das sieht nach guter Unterhaltung aus!', emoji: false },
-];
+function CommentPanel({ videoId, onClose }) {
+  const [comments, setComments] = useState([]);
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef(null);
 
-function ReactionBar({ counts, myReaction, onReact, onClose }) {
+  useEffect(() => {
+    api.get(`/feed/${videoId}/comments`)
+      .then(r => setComments(r.data))
+      .catch(() => toast.error('Kommentare laden fehlgeschlagen'))
+      .finally(() => setLoading(false));
+  }, [videoId]);
+
+  async function submit() {
+    if (!text.trim()) return;
+    setSending(true);
+    try {
+      const res = await api.post(`/feed/${videoId}/comment`, { text });
+      setComments(c => [...c, res.data]);
+      setText('');
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+    } catch {
+      toast.error('Kommentar fehlgeschlagen');
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
-    <div className="absolute inset-0 z-20 flex items-end" onClick={onClose}>
+    <div className="absolute inset-0 z-30 flex flex-col justify-end" onClick={onClose}>
       <div
-        className="w-full bg-black/80 backdrop-blur-sm p-5 pb-10 space-y-3"
+        className="rounded-t-3xl flex flex-col"
+        style={{ background: 'rgba(10,10,14,0.97)', border: '1px solid rgba(124,58,237,0.3)', maxHeight: '70%' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-2">
-          <p className="text-white text-sm font-semibold">Reagieren</p>
-          <button onClick={onClose}><X size={20} className="text-white/60" /></button>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <span className="text-white font-semibold text-sm">Kommentare</span>
+          <button onClick={onClose}><X size={18} className="text-white/50" /></button>
         </div>
-        {REACTIONS.map(r => {
-          const count = counts?.[r.type] || 0;
-          const active = myReaction === r.type;
-          return (
-            <button
-              key={r.type}
-              onClick={() => onReact(r.type)}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition ${
-                active ? 'bg-violet-600' : 'bg-white/10 active:bg-white/20'
-              }`}
-            >
-              <span className={`text-base font-medium ${active ? 'text-white' : 'text-white'}`}>
-                {r.label}
-              </span>
-              {count > 0 && (
-                <span className="text-white/60 text-sm font-medium">{count}</span>
-              )}
-            </button>
-          );
-        })}
+
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+          {loading && <p className="text-white/40 text-sm text-center py-4">Laden…</p>}
+          {!loading && comments.length === 0 && (
+            <p className="text-white/40 text-sm text-center py-4">Noch keine Kommentare. Sei der Erste!</p>
+          )}
+          {comments.map(c => (
+            <div key={c.id} className="flex gap-2">
+              <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs flex-shrink-0">
+                {c.photo ? <img src={c.photo} className="w-7 h-7 rounded-full object-cover" alt="" /> : (c.emoji || '👤')}
+              </div>
+              <div>
+                <span className="text-white/60 text-xs font-semibold mr-1">{c.display_name}</span>
+                <span className="text-white text-sm">{c.text}</span>
+              </div>
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+
+        <div className="flex gap-2 px-4 py-3 border-t border-white/10">
+          <input
+            className="flex-1 bg-white/10 text-white placeholder-white/30 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500"
+            placeholder="Kommentar schreiben…"
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && submit()}
+            maxLength={300}
+          />
+          <button
+            onClick={submit}
+            disabled={sending || !text.trim()}
+            className="w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
+          >
+            <Send size={16} color="white" />
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function ReactionCounts({ counts, myReaction }) {
-  const total = Object.values(counts || {}).reduce((s, v) => s + (v || 0), 0);
-  if (total === 0) return null;
-
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {REACTIONS.map(r => {
-        const count = counts?.[r.type] || 0;
-        if (count === 0) return null;
-        const active = myReaction === r.type;
-        return (
-          <span
-            key={r.type}
-            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-              active ? 'bg-violet-600 text-white' : 'bg-black/50 text-white'
-            }`}
-          >
-            {r.emoji ? r.label : '💬'} {count}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function VideoItem({ video, isActive, onSwipeUp, onSwipeLeft }) {
+function VideoItem({ video, isActive, onSwipeUp, onSwipeDown }) {
   const videoRef = useRef(null);
   const touchStartRef = useRef(null);
-  const [showReactions, setShowReactions] = useState(false);
-  const [counts, setCounts] = useState({
-    thumbs_up: video.count_thumbs_up || 0,
-    laughing: video.count_laughing || 0,
-    super_drauf: video.count_super_drauf || 0,
-    gute_unterhaltung: video.count_gute_unterhaltung || 0,
-  });
-  const [myReaction, setMyReaction] = useState(video.my_reaction || null);
+  const [liked, setLiked] = useState(!!video.my_like);
+  const [likeCount, setLikeCount] = useState(video.like_count || 0);
+  const [commentCount, setCommentCount] = useState(video.comment_count || 0);
+  const [showComments, setShowComments] = useState(false);
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -103,29 +114,26 @@ function VideoItem({ video, isActive, onSwipeUp, onSwipeLeft }) {
     const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
     const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
     touchStartRef.current = null;
-
-    if (Math.abs(dy) > Math.abs(dx) && dy < -60) {
-      onSwipeUp();
-      return;
-    }
-    if (Math.abs(dx) > Math.abs(dy) && dx < -60) {
-      setShowReactions(true);
-    }
+    if (Math.abs(dy) > Math.abs(dx) && dy < -60) { onSwipeUp(); return; }
+    if (Math.abs(dy) > Math.abs(dx) && dy > 60)  { onSwipeDown(); return; }
   }
 
-  async function handleReact(type) {
+  async function handleLike() {
+    const wasLiked = liked;
+    setLiked(!wasLiked);
+    setLikeCount(c => wasLiked ? c - 1 : c + 1);
     try {
-      await api.post(`/feed/${video.id}/react`, { reaction: type });
-      setShowReactions(false);
-      onSwipeUp();
+      await api.post(`/feed/${video.id}/like`);
     } catch {
-      toast.error('Reaktion fehlgeschlagen');
+      setLiked(wasLiked);
+      setLikeCount(c => wasLiked ? c + 1 : c - 1);
+      toast.error('Like fehlgeschlagen');
     }
   }
 
   return (
     <div
-      className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden"
+      className="relative w-full h-full bg-black overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -134,14 +142,43 @@ function VideoItem({ video, isActive, onSwipeUp, onSwipeLeft }) {
         src={video.video_url}
         className="w-full h-full object-cover"
         loop={false}
-        muted
         playsInline
         onEnded={onSwipeUp}
       />
 
-      {/* Uploader info + reactions overlay */}
-      <div className="absolute bottom-0 left-0 right-0 p-5 pb-8 bg-gradient-to-t from-black/70 to-transparent pointer-events-none">
-        <div className="flex items-center gap-2 mb-2">
+      {/* Right action bar */}
+      <div className="absolute right-3 bottom-32 flex flex-col items-center gap-5 z-10">
+        {/* Like */}
+        <button onClick={handleLike} className="flex flex-col items-center gap-1">
+          <div
+            className="w-11 h-11 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.4)' }}
+          >
+            <Heart
+              size={24}
+              color={liked ? '#EC4899' : 'white'}
+              fill={liked ? '#EC4899' : 'none'}
+              strokeWidth={2}
+            />
+          </div>
+          <span className="text-white text-xs font-semibold drop-shadow">{likeCount}</span>
+        </button>
+
+        {/* Comment */}
+        <button onClick={() => setShowComments(true)} className="flex flex-col items-center gap-1">
+          <div
+            className="w-11 h-11 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.4)' }}
+          >
+            <MessageCircle size={24} color="white" strokeWidth={2} />
+          </div>
+          <span className="text-white text-xs font-semibold drop-shadow">{commentCount}</span>
+        </button>
+      </div>
+
+      {/* Bottom info */}
+      <div className="absolute bottom-0 left-0 right-14 p-4 pb-6 bg-gradient-to-t from-black/70 to-transparent pointer-events-none">
+        <div className="flex items-center gap-2 mb-1">
           {video.uploader_photo ? (
             <img src={video.uploader_photo} className="w-8 h-8 rounded-full object-cover border border-white/30" alt="" />
           ) : (
@@ -151,19 +188,19 @@ function VideoItem({ video, isActive, onSwipeUp, onSwipeLeft }) {
           )}
           <span className="text-white font-semibold text-sm">{video.display_name}</span>
         </div>
-        {video.caption && (
-          <p className="text-white/80 text-sm mb-2">{video.caption}</p>
-        )}
-        <ReactionCounts counts={counts} myReaction={myReaction} />
-        <p className="text-white/40 text-xs mt-2">← wischen zum Reagieren · ↑ nächstes Video</p>
+        {video.caption && <p className="text-white/80 text-sm">{video.caption}</p>}
+        <p className="text-white/30 text-xs mt-2">↑ weiter · ↓ zurück</p>
       </div>
 
-      {showReactions && (
-        <ReactionBar
-          counts={counts}
-          myReaction={myReaction}
-          onReact={handleReact}
-          onClose={() => setShowReactions(false)}
+      {showComments && (
+        <CommentPanel
+          videoId={video.id}
+          onClose={() => {
+            setShowComments(false);
+            api.get(`/feed/${video.id}/comments`)
+              .then(r => setCommentCount(r.data.length))
+              .catch(() => {});
+          }}
         />
       )}
     </div>
@@ -194,9 +231,8 @@ export default function LifeFeedScreen() {
 
   useEffect(() => { loadFeed(); }, [loadFeed]);
 
-  function goNext() {
-    setCurrentIndex(i => Math.min(i + 1, videos.length - 1));
-  }
+  function goNext() { setCurrentIndex(i => Math.min(i + 1, videos.length - 1)); }
+  function goPrev() { setCurrentIndex(i => Math.max(i - 1, 0)); }
 
   async function handleUpload() {
     if (!selectedFileRef.current) return;
@@ -281,7 +317,7 @@ export default function LifeFeedScreen() {
             video={videos[currentIndex]}
             isActive={true}
             onSwipeUp={goNext}
-            onSwipeLeft={() => {}}
+            onSwipeDown={goPrev}
           />
         )}
 
@@ -291,20 +327,15 @@ export default function LifeFeedScreen() {
             {videos.map((_, i) => (
               <div
                 key={i}
-                className={`w-1 rounded-full transition-all ${
-                  i === currentIndex ? 'h-6 bg-white' : 'h-1.5 bg-white/30'
-                }`}
+                className={`w-1 rounded-full transition-all ${i === currentIndex ? 'h-6 bg-white' : 'h-1.5 bg-white/30'}`}
               />
             ))}
           </div>
         )}
 
-        {/* End of feed */}
         {currentIndex === videos.length - 1 && videos.length > 0 && (
-          <div className="absolute bottom-20 left-0 right-0 flex justify-center z-20 pointer-events-none">
-            <span className="bg-black/50 text-white/60 text-xs px-3 py-1 rounded-full">
-              Ende des Feeds
-            </span>
+          <div className="absolute bottom-24 left-0 right-0 flex justify-center z-20 pointer-events-none">
+            <span className="bg-black/50 text-white/60 text-xs px-3 py-1 rounded-full">Ende des Feeds</span>
           </div>
         )}
       </div>

@@ -480,36 +480,67 @@ async function getHeatmap(req, res) {
       : { name: locationLabel, address: locationLabel, lat: centerLat, lng: centerLng };
     const allVenues = [searchedVenue, ...venues];
 
-    // 2. Get BestTime forecast for each venue in parallel (2 credits each)
     const now = new Date();
-    const dayInt = now.getDay();
-    const hourInt = now.getHours();
 
-    const forecasts = await Promise.allSettled(
-      allVenues.map(v => getBestTimeForecast(v.name, `${v.name}, ${v.address}`))
-    );
+    // TODO: FAKE DATA ENTFERNEN sobald BestTime-Daten zuverlässig für alle Zielstädte
+    // verfügbar sind. Fake-Punkte sind Münchner Landmarks (Gärtnerplatz-Umgebung)
+    // und sollen durch echte venue-basierte Daten aus BestTime.app ersetzt werden.
+    const FAKE_HEAT_POINTS = [
+      // 3 Wirtshäuser — sehr heiß (rot, intensity ≥ 0.75)
+      [48.13765, 11.57992, 0.92], // Hofbräuhaus
+      [48.13590, 11.57935, 0.88], // Weisses Bräuhaus
+      [48.14220, 11.57010, 0.85], // Augustinerkeller Innenstadt
 
-    const heatPoints = [];
-    forecasts.forEach((result, i) => {
-      if (result.status !== 'fulfilled' || !result.value || result.value.status !== 'OK') return;
-      const bt = result.value;
-      const vLat = bt.venue_info?.venue_lat ?? allVenues[i].lat;
-      const vLng = bt.venue_info?.venue_lon ?? allVenues[i].lng;
+      // 4 Bars — warm/belebt (orange, intensity 0.55–0.74)
+      [48.14350, 11.56280, 0.68], // Sonnenstraße
+      [48.14490, 11.58610, 0.63], // Maximilianstraße
+      [48.14080, 11.57920, 0.61], // Odeonsplatz Bereich
+      [48.13320, 11.56540, 0.57], // Sendlinger-Tor Bereich
 
-      let intensity = 0;
-      try {
-        const dayData = bt.analysis?.find(d => d.day_info?.day_int === dayInt);
-        const hourData = dayData?.hour_analysis?.find(h => h.hour_int === hourInt);
-        if (hourData?.intensity_nr != null) intensity = hourData.intensity_nr / 100;
-        else if (dayData?.day_info?.day_mean != null) intensity = dayData.day_info.day_mean / 100;
-      } catch {}
+      // 6 Restaurants rund um Gärtnerplatz — mäßig (gelb, intensity 0.35–0.54)
+      [48.12980, 11.57570, 0.50], // Gärtnerplatz
+      [48.13180, 11.57820, 0.47], // Klenzestraße
+      [48.12760, 11.57250, 0.45], // Reichenbachstraße
+      [48.13050, 11.57150, 0.43], // Buttermelcherstraße
+      [48.12650, 11.57850, 0.42], // Müllerstraße Süd
+      [48.13380, 11.58120, 0.40], // Isartorplatz
+    ];
 
-      heatPoints.push({ lat: vLat, lng: vLng, intensity: Math.max(0.1, intensity) });
-    });
+    let liveHeatPoints = [];
 
-    // Sortiere nach Aktivität absteigend, behalte die 8 aktivsten
-    heatPoints.sort((a, b) => b.intensity - a.intensity);
-    const topHeatPoints = heatPoints.slice(0, 8).map(p => [p.lat, p.lng, p.intensity]);
+    if (process.env.BESTTIME_API_KEY) {
+      // Live BestTime-Daten als Ergänzung zu den Fake-Daten
+      const dayInt = now.getDay();
+      const hourInt = now.getHours();
+
+      const forecasts = await Promise.allSettled(
+        allVenues.map(v => getBestTimeForecast(v.name, `${v.name}, ${v.address}`))
+      );
+
+      forecasts.forEach((result, i) => {
+        if (result.status !== 'fulfilled' || !result.value || result.value.status !== 'OK') return;
+        const bt = result.value;
+        const vLat = bt.venue_info?.venue_lat ?? allVenues[i].lat;
+        const vLng = bt.venue_info?.venue_lon ?? allVenues[i].lng;
+
+        let intensity = 0;
+        try {
+          const dayData = bt.analysis?.find(d => d.day_info?.day_int === dayInt);
+          const hourData = dayData?.hour_analysis?.find(h => h.hour_int === hourInt);
+          if (hourData?.intensity_nr != null) intensity = hourData.intensity_nr / 100;
+          else if (dayData?.day_info?.day_mean != null) intensity = dayData.day_info.day_mean / 100;
+        } catch {}
+
+        liveHeatPoints.push([vLat, vLng, Math.max(0.1, intensity)]);
+      });
+
+      liveHeatPoints.sort((a, b) => b[2] - a[2]);
+      liveHeatPoints = liveHeatPoints.slice(0, 8);
+    }
+
+    // Fake-Daten als Basis, Live-Daten vorne (höhere Priorität)
+    const combined = [...liveHeatPoints, ...FAKE_HEAT_POINTS];
+    const topHeatPoints = combined.slice(0, 13);
 
     // 3. Also get our app's pins in the area (non-clickable overlay)
     const today = now.toISOString().slice(0, 10);

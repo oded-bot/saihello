@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Camera, Image, Clock, Users, ChevronDown, X, Edit2, Trash2, ArrowLeft } from 'lucide-react';
+import { Flame, Camera, Image, Clock, Users, ChevronDown, X, Edit2, Trash2 } from 'lucide-react';
 import api from '../../utils/api';
 import useLanguage from '../../hooks/useLanguage';
 import toast from 'react-hot-toast';
@@ -30,7 +30,6 @@ export default function OfferScreen() {
   const [myOffers, setMyOffers] = useState([]);
   const [editingOfferId, setEditingOfferId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [step, setStep] = useState(1);
   const [location, setLocation] = useState({ locationText: '', locationLat: null, locationLng: null });
   const fileInputRef = useRef(null);
   const { t } = useLanguage();
@@ -75,14 +74,12 @@ export default function OfferScreen() {
       setSeatsForMen(sfm);
     }
     if (offer.photo_url) setPhotoPreview(offer.photo_url);
-    setStep(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function cancelEdit() {
     setEditingOfferId(null);
     setShowForm(false);
-    setStep(1);
     setForm({
       totalSeats: '', availableSeats: '', date: '',
       timeFrom: '', timeUntil: '', groupDescription: '', pricePerSeat: '',
@@ -162,26 +159,16 @@ export default function OfferScreen() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
-  function handleWeiter(e) {
+  async function handleSubmitWithLocation(e) {
     e.preventDefault();
     if (!photo) {
       toast.error(t('uploadPhoto'));
-      return;
-    }
-    if (!form.date || !form.timeFrom || !form.timeUntil || !form.totalSeats || !form.availableSeats) {
-      toast.error('Bitte alle Pflichtfelder ausfüllen.');
       return;
     }
     if (!form.category) {
       toast.error('Bitte eine Kategorie auswählen.');
       return;
     }
-    setStep(2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  async function handleSubmitWithLocation(e) {
-    e.preventDefault();
     setLoading(true);
     try {
       const formData = new FormData();
@@ -306,9 +293,7 @@ export default function OfferScreen() {
       {/* Formular */}
       {(myOffers.length === 0 || showForm || editingOfferId) && (
         <>
-          {/* Step 1: Details */}
-          {(editingOfferId || step === 1) && (
-            <form onSubmit={editingOfferId ? (e) => { e.preventDefault(); handleUpdateOffer(); } : handleWeiter} className="space-y-4">
+          <form onSubmit={editingOfferId ? (e) => { e.preventDefault(); handleUpdateOffer(); } : handleSubmitWithLocation} className="space-y-4">
               {/* FOTO */}
               {!editingOfferId && (
                 <div>
@@ -385,6 +370,14 @@ export default function OfferScreen() {
                   ))}
                 </div>
               </div>
+
+              {/* Ort */}
+              {!editingOfferId && (
+                <div>
+                  <label className={labelClass}>Ort (optional)</label>
+                  <LocationPicker onLocationChange={setLocation} />
+                </div>
+              )}
 
               {/* Datum */}
               <div>
@@ -531,41 +524,13 @@ export default function OfferScreen() {
               ) : (
                 <button
                   type="submit"
-                  className="w-full py-3.5 tinder-gradient text-white font-bold rounded-full shadow-lg hover:shadow-xl transition text-base"
-                >
-                  Weiter →
-                </button>
-              )}
-            </form>
-          )}
-
-          {/* Step 2: Ort */}
-          {!editingOfferId && step === 2 && (
-            <form onSubmit={handleSubmitWithLocation} className="space-y-5">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Wo findet euer Treffen statt? (optional)
-              </p>
-
-              <LocationPicker onLocationChange={setLocation} />
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  className="flex-1 py-3.5 bg-gray-100 dark:bg-dark-elevated text-gray-700 dark:text-gray-300 font-bold rounded-full transition text-base flex items-center justify-center gap-2"
-                >
-                  <ArrowLeft size={18} /> Zurück
-                </button>
-                <button
-                  type="submit"
                   disabled={loading}
-                  className="flex-1 py-3.5 tinder-gradient text-white font-bold rounded-full shadow-lg hover:shadow-xl transition disabled:opacity-50 text-base"
+                  className="w-full py-3.5 tinder-gradient text-white font-bold rounded-full shadow-lg hover:shadow-xl transition disabled:opacity-50 text-base"
                 >
                   {loading ? t('publishing') : t('publishOffer')}
                 </button>
-              </div>
+              )}
             </form>
-          )}
         </>
       )}
     </div>

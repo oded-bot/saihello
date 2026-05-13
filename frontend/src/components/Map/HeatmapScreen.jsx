@@ -4,7 +4,6 @@ import { MapContainer, TileLayer, Marker, useMap, ZoomControl, Circle } from 're
 import L from 'leaflet';
 import { ChevronLeft, X } from 'lucide-react';
 import api from '../../utils/api';
-import BottomNav from '../Shared/BottomNav';
 
 function PinTeaserModal({ onClose, navigate }) {
   return (
@@ -73,14 +72,15 @@ function heatColor(intensity) {
   return '#22c55e';
 }
 
-// Each heat point rendered as 4 concentric circles fading outward — mimics Gaussian blur
+// Each heat point rendered as 3 concentric circles — radius scales with intensity
 function HeatBlob({ lat, lng, intensity }) {
   const color = heatColor(intensity);
+  // Higher intensity = larger visible footprint
+  const scale = 0.5 + intensity * 0.8;
   const layers = [
-    { radius: 350, fillOpacity: 0.05 },
-    { radius: 240, fillOpacity: 0.10 },
-    { radius: 150, fillOpacity: 0.18 },
-    { radius: 75,  fillOpacity: 0.30 + intensity * 0.25 },
+    { radius: Math.round(200 * scale), fillOpacity: 0.06 },
+    { radius: Math.round(100 * scale), fillOpacity: 0.15 },
+    { radius: Math.round(50  * scale), fillOpacity: 0.42 + intensity * 0.30 },
   ];
   return layers.map((l, i) => (
     <Circle
@@ -102,7 +102,7 @@ function HeatLayer({ points }) {
 
 function RecenterMap({ center }) {
   const map = useMap();
-  useEffect(() => { if (center) map.flyTo(center, 16); }, [center]);
+  useEffect(() => { if (center) map.flyTo(center, 14); }, [center]);
   return null;
 }
 
@@ -140,7 +140,7 @@ export default function HeatmapScreen() {
     : [48.1351, 11.582];
 
   return (
-    <div className="relative w-full overflow-hidden" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="relative w-full overflow-hidden" style={{ height: '100vh' }}>
       {loading ? (
         <div className="flex flex-col items-center justify-center h-full bg-gray-50 gap-3">
           <div className="w-10 h-10 border-4 border-orange-400 border-t-transparent rounded-full animate-spin" />
@@ -192,9 +192,9 @@ export default function HeatmapScreen() {
       {/* Top info bar */}
       {data && !loading && !error && (
         <div className="fixed left-0 right-0 px-4 z-[9999]" style={{ top: 0, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-4 py-3 shadow text-sm">
-            <p className="font-semibold text-gray-900 truncate">🔥 {data.locationLabel}</p>
-            <div className="flex gap-3 text-xs text-gray-500 mt-0.5">
+          <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>
+            <p className="font-semibold text-white truncate">🔥 {data.locationLabel}</p>
+            <div className="flex gap-3 text-xs text-white/50 mt-0.5">
               <span>{data.heatPoints.length} Aktivitätspunkte</span>
               {data.offerPins.length > 0 && <span>🔵 {data.offerPins.length} Angebote</span>}
               {data.seekerPins.length > 0 && <span>🔴 {data.seekerPins.length} Suchende</span>}
@@ -207,7 +207,7 @@ export default function HeatmapScreen() {
       <button
         onClick={() => navigate(-1)}
         className="fixed left-4 z-[1001] flex items-center gap-1 bg-white/90 backdrop-blur-sm text-gray-700 rounded-xl px-3 py-2 shadow text-sm font-medium"
-        style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px) + 12px)' }}
+        style={{ bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
       >
         <ChevronLeft size={18} />
         Zurück
@@ -217,7 +217,7 @@ export default function HeatmapScreen() {
       {data && !loading && !error && (
         <div
           className="fixed right-4 z-[1001] bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow text-xs space-y-1"
-          style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px) + 12px)' }}
+          style={{ bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
         >
           <p className="font-semibold text-gray-700 mb-1">Aktivität</p>
           {[['🟢', 'Ruhig'], ['🟡', 'Mäßig'], ['🟠', 'Belebt'], ['🔴', 'Sehr voll']].map(([dot, label]) => (
@@ -225,8 +225,6 @@ export default function HeatmapScreen() {
           ))}
         </div>
       )}
-
-      <BottomNav />
 
       {showTeaser && (
         <PinTeaserModal onClose={() => setShowTeaser(false)} navigate={navigate} />
