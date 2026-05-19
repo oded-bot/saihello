@@ -48,7 +48,7 @@ function getFakePhone(userId) {
 async function generateReply(personality, chatHistory, incomingMessage) {
   const systemPrompt = `${personality}
 
-Du chattest auf der "Servus Wiesn" App. Antworte kurz und natürlich wie in einem WhatsApp-Chat. 1-3 Sätze max. Sei freundlich, locker und in Stimmung. Schreib auf Deutsch. Kein Emoji-Overkill, aber ab und zu eins ist okay.`;
+Du chattest auf der "SaiHello" App. Antworte kurz und natürlich wie in einem WhatsApp-Chat. 1-3 Sätze max. Sei freundlich, locker und in Stimmung. Schreib auf Deutsch. Kein Emoji-Overkill, aber ab und zu eins ist okay.`;
 
   const messages = chatHistory.map(m => ({
     role: m.is_bot ? 'model' : 'user',

@@ -13,6 +13,9 @@ function HeatLocationModal({ onClose, onConfirm }) {
   const [query, setQuery] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const [geocodeConfirm, setGeocodeConfirm] = useState(null); // { displayName, lat, lng }
 
   function handleGps() {
     if (!navigator.geolocation) { setGpsError('GPS nicht verfügbar'); return; }
@@ -25,11 +28,59 @@ function HeatLocationModal({ onClose, onConfirm }) {
     );
   }
 
+  async function handleCheck() {
+    if (!query.trim()) return;
+    setChecking(true);
+    setLocationError('');
+    try {
+      const res = await api.get('/tables/geocode-check', { params: { q: query.trim() } });
+      const { status, lat, lng, displayName } = res.data;
+      if (status === 'ok') {
+        onConfirm({ lat, lng, query: query.trim() });
+      } else if (status === 'needs_confirm') {
+        setGeocodeConfirm({ displayName, lat, lng });
+      } else {
+        setLocationError('Ort nicht gefunden. Bitte genauer eingeben (z.B. "Marienplatz München").');
+      }
+    } catch {
+      setLocationError('Ort konnte nicht geprüft werden. Bitte erneut versuchen.');
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  if (geocodeConfirm) {
+    return (
+      <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/80" onClick={onClose}>
+        <div className="bg-dark-card rounded-t-3xl w-full max-w-md p-6 shadow-2xl border-t border-dark-separator" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }} onClick={e => e.stopPropagation()}>
+          <p className="text-2xl mb-3">📍</p>
+          <h3 className="text-lg font-bold text-white mb-2">Meintest du diesen Ort?</h3>
+          <p className="text-sm text-white/70 mb-6 leading-relaxed">{geocodeConfirm.displayName}</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => onConfirm({ lat: geocodeConfirm.lat, lng: geocodeConfirm.lng, query: geocodeConfirm.displayName })}
+              className="flex-1 py-3 rounded-2xl text-white font-bold text-sm tinder-gradient"
+            >
+              Ja, das stimmt
+            </button>
+            <button
+              onClick={() => setGeocodeConfirm(null)}
+              className="flex-1 py-3 rounded-2xl font-semibold text-sm text-white/70"
+              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+            >
+              Nein, neu eingeben
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/80" onClick={onClose}>
       <div className="bg-dark-card rounded-t-3xl w-full max-w-md p-6 shadow-2xl border-t border-dark-separator" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-white">🔥 Where's the heat?</h2>
+          <h2 className="text-xl font-bold text-white">🔥 Wo ist was los?</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-dark-elevated flex items-center justify-center">
             <X size={16} className="text-white/50" />
           </button>
@@ -41,19 +92,23 @@ function HeatLocationModal({ onClose, onConfirm }) {
             <input
               type="text"
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={e => { setQuery(e.target.value); setLocationError(''); }}
               placeholder="z.B. Marienplatz München…"
               className="flex-1 border border-dark-separator rounded-xl px-4 py-3 text-sm bg-dark-elevated text-white focus:outline-none focus:border-app-violet focus:ring-1 focus:ring-app-violet/30 placeholder-white/25"
-              onKeyDown={e => e.key === 'Enter' && query.trim() && onConfirm({ query: query.trim() })}
+              onKeyDown={e => e.key === 'Enter' && handleCheck()}
             />
             <button
-              onClick={() => query.trim() && onConfirm({ query: query.trim() })}
-              disabled={!query.trim()}
-              className="tinder-gradient text-white px-4 rounded-xl font-semibold text-sm disabled:opacity-40"
+              onClick={handleCheck}
+              disabled={!query.trim() || checking}
+              className="tinder-gradient text-white px-4 rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center gap-1"
             >
-              Los
+              {checking ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Los'}
             </button>
           </div>
+
+          {locationError && (
+            <p className="text-xs text-red-400">{locationError}</p>
+          )}
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-dark-separator" />

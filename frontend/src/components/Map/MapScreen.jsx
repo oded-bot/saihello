@@ -82,42 +82,42 @@ function PinPopup({ pin, onLike, onSuperLike, onClose, isOffer }) {
   const genderLabel = { m: 'Männlich', f: 'Weiblich', d: 'Divers' };
 
   return (
-    <div className="fixed inset-0 z-[1003] flex items-end justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[1003] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div
-        className="bg-white w-full max-w-md rounded-t-3xl p-6 shadow-2xl"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 34px) + 50px)' }}
+        className="w-full max-w-md rounded-t-3xl p-6 shadow-2xl"
+        style={{ background: 'rgba(18,10,35,0.98)', border: '1px solid rgba(124,58,237,0.3)', paddingBottom: 'calc(env(safe-area-inset-bottom, 34px) + 50px)' }}
         onClick={e => e.stopPropagation()}
       >
+        {/* Handle */}
+        <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5" />
+
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-4">
             {p.photo ? (
-              <img src={p.photo} className="w-16 h-16 rounded-full object-cover" alt={p.displayName} />
+              <img src={p.photo} className="w-16 h-16 rounded-full object-cover border-2 border-violet-500/40" alt={p.displayName} />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-900">
-                {p.displayName?.[0]}
+              <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white" style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
+                {p.emoji || p.displayName?.[0]}
               </div>
             )}
             <div>
-              <h3 className="font-bold text-lg text-gray-900">{p.displayName}</h3>
-              <p className="text-sm text-gray-500">{p.age} · {genderLabel[p.gender] || p.gender}</p>
-              {p.isVerified && <span className="text-xs text-blue-600 font-medium">Verifiziert</span>}
+              <h3 className="font-bold text-lg text-white">{p.displayName}</h3>
+              <p className="text-sm text-white/50">{p.age} · {genderLabel[p.gender] || p.gender}</p>
+              {p.isVerified && <span className="text-xs text-violet-400 font-medium">✓ Verifiziert</span>}
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 text-2xl leading-none">×</button>
+          <button onClick={onClose} className="text-white/40 text-2xl leading-none hover:text-white/70">×</button>
         </div>
 
-        <div className="text-sm text-gray-600 space-y-1 mb-4">
-          <p>
-            <span className="font-medium">{isOffer ? 'Ort:' : 'Sucht bei:'}</span>{' '}
-            {pin.locationText || `${pin.lat?.toFixed(4)}, ${pin.lng?.toFixed(4)}`}
-          </p>
-          <p><span className="font-medium">Datum:</span> {pin.date}</p>
-          <p><span className="font-medium">Zeit:</span> {pin.timeFrom} – {pin.timeUntil}</p>
-          {isOffer && <p><span className="font-medium">Verfügbare Plätze:</span> {pin.availableSeats}</p>}
-          {!isOffer && <p><span className="font-medium">Sucht:</span> {pin.seatsNeeded} Platz/Plätze</p>}
+        <div className="text-sm text-white/60 space-y-1.5 mb-4 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <p><span className="text-white/80 font-medium">{isOffer ? 'Ort:' : 'Sucht bei:'}</span>{' '}{pin.locationText || `${pin.lat?.toFixed(4)}, ${pin.lng?.toFixed(4)}`}</p>
+          <p><span className="text-white/80 font-medium">Datum:</span> {pin.date}</p>
+          <p><span className="text-white/80 font-medium">Zeit:</span> {pin.timeFrom} – {pin.timeUntil}</p>
+          {isOffer && <p><span className="text-white/80 font-medium">Verfügbare Plätze:</span> {pin.availableSeats}</p>}
+          {!isOffer && <p><span className="text-white/80 font-medium">Sucht:</span> {pin.seatsNeeded} Platz/Plätze</p>}
         </div>
 
-        {p.bio && <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3 mb-4 italic">"{p.bio}"</p>}
+        {p.bio && <p className="text-sm text-white/50 rounded-xl p-3 mb-4 italic" style={{ background: 'rgba(255,255,255,0.04)' }}>"{p.bio}"</p>}
 
         {FEATURES.inclusivityBadges && p.badges?.length > 0 && (
           <div className="mb-4">
@@ -126,10 +126,10 @@ function PinPopup({ pin, onLike, onSuperLike, onClose, isOffer }) {
         )}
 
         <div className="flex gap-3">
-          <button onClick={() => onLike(pin)} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-semibold text-sm">
+          <button onClick={() => onLike(pin)} className="flex-1 py-3 rounded-xl font-semibold text-sm text-white" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
             Like
           </button>
-          <button onClick={() => onSuperLike(pin)} className="flex-1 bg-blue-900 text-white py-3 rounded-xl font-semibold text-sm">
+          <button onClick={() => onSuperLike(pin)} className="flex-1 py-3 rounded-xl font-semibold text-sm text-white" style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
             Super Like
           </button>
         </div>
@@ -433,15 +433,23 @@ export default function MapScreen() {
       >
         <ZoomControl position="bottomright" />
         <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url={`https://api.maptiler.com/maps/streets-v2-dark/{z}/{x}/{y}.png?key=${import.meta.env.VITE_MAPTILER_KEY}`}
+          attribution='&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          tileSize={512}
+          zoomOffset={-1}
         />
         {center && <RecenterMap center={center} />}
         {filteredPins.map(pin => (
           <Marker
             key={pin.id}
             position={[pin.lat, pin.lng]}
-            icon={createPinIcon(pin.isOwn ? ownPinIcon : (myStatus === 'search' ? offerIcon : seekerIcon), pin.profile?.emoji, pin.profile?.photo)}
+            icon={createPinIcon(
+                pin.isOwn
+                  ? (myStatus === 'offer' ? offerIcon : ownPinIcon)
+                  : (myStatus === 'search' ? offerIcon : seekerIcon),
+                pin.profile?.emoji,
+                pin.profile?.photo
+              )}
             eventHandlers={{ click: () => { if (pin.isOwn) setOwnPinPopup(true); else setSelectedPin(pin); } }}
           />
         ))}
@@ -541,30 +549,33 @@ export default function MapScreen() {
       )}
 
       {ownPinPopup && myItem && (
-        <div className="fixed inset-0 z-[1003] flex items-end justify-center bg-black/40" onClick={() => setOwnPinPopup(false)}>
-          <div className="bg-white w-full max-w-md rounded-t-3xl p-6 shadow-2xl" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 34px) + 50px)' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[1003] flex items-end justify-center bg-black/60" onClick={() => setOwnPinPopup(false)}>
+          <div className="w-full max-w-md rounded-t-3xl p-6 shadow-2xl" style={{ background: 'rgba(18,10,35,0.98)', border: '1px solid rgba(124,58,237,0.3)', paddingBottom: 'calc(env(safe-area-inset-bottom, 34px) + 50px)' }} onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5" />
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-lg text-blue-900">
+              <h3 className="font-bold text-lg text-white">
                 {myStatus === 'offer' ? 'Dein Angebot' : 'Deine Suche'}
               </h3>
-              <button onClick={() => setOwnPinPopup(false)} className="text-gray-400 text-2xl leading-none">×</button>
+              <button onClick={() => setOwnPinPopup(false)} className="text-white/40 text-2xl leading-none">×</button>
             </div>
-            <div className="text-sm text-gray-600 space-y-1 mb-6">
-              <p><span className="font-medium">Ort:</span> {myItem.location_text || `${myItem.location_lat?.toFixed(5)}, ${myItem.location_lng?.toFixed(5)}`}</p>
-              <p><span className="font-medium">Datum:</span> {myItem.date}</p>
-              <p><span className="font-medium">Zeit:</span> {myItem.time_from} – {myItem.time_until}</p>
-              {myStatus === 'offer' && <p><span className="font-medium">Plätze:</span> {myItem.available_seats}</p>}
+            <div className="text-sm text-white/60 space-y-1.5 mb-6 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <p><span className="text-white/80 font-medium">Ort:</span> {myItem.location_text || `${myItem.location_lat?.toFixed(5)}, ${myItem.location_lng?.toFixed(5)}`}</p>
+              <p><span className="text-white/80 font-medium">Datum:</span> {myItem.date}</p>
+              <p><span className="text-white/80 font-medium">Zeit:</span> {myItem.time_from} – {myItem.time_until}</p>
+              {myStatus === 'offer' && <p><span className="text-white/80 font-medium">Plätze:</span> {myItem.available_seats}</p>}
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => navigate(myStatus === 'offer' ? '/offer' : '/discover')}
-                className="flex-1 border border-blue-900 text-blue-900 py-3 rounded-xl font-semibold text-sm"
+                className="flex-1 py-3 rounded-xl font-semibold text-sm text-white/80"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
               >
                 Neu erstellen
               </button>
               <button
                 onClick={handleDeleteOwnItem}
-                className="flex-1 bg-red-500 text-white py-3 rounded-xl font-semibold text-sm"
+                className="flex-1 py-3 rounded-xl font-semibold text-sm text-white"
+                style={{ background: 'rgba(239,68,68,0.25)', border: '1px solid rgba(239,68,68,0.4)' }}
               >
                 Löschen
               </button>

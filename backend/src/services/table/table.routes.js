@@ -18,6 +18,9 @@ router.get('/role-status', (req, res) => {
 // Zelte auflisten
 router.get('/tents', tableController.getTents);
 
+// Ort validieren (Geocoding-Check vor Formular-Abschluss)
+router.get('/geocode-check', tableController.geocodeCheck);
+
 // Tisch-Angebot erstellen (gesperrt wenn aktiv am Suchen)
 router.post('/offers', canOffer, [
   body('totalSeats').isInt({ min: 1, max: 20 }).withMessage('1-20 Plätze'),

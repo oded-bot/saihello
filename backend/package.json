@@ -1,7 +1,7 @@
 {
-  "name": "servus-wiesn-backend",
+  "name": "saihello-backend",
   "version": "1.0.0",
-  "description": "Servus Wiesn — Oktoberfest Tisch-Matching Platform Backend",
+  "description": "SaiHello — Event-Matching Platform Backend",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

@@ -5,7 +5,7 @@ function geocode(locationText) {
     const query = encodeURIComponent(locationText);
     const options = {
       hostname: 'nominatim.openstreetmap.org',
-      path: `/search?q=${query}&format=json&limit=1`,
+      path: `/search?q=${query}&format=json&limit=1&accept-language=de,en`,
       headers: { 'User-Agent': 'SaiHello/1.0' }
     };
     const req = https.get(options, res => {
@@ -15,7 +15,14 @@ function geocode(locationText) {
         try {
           const results = JSON.parse(data);
           if (results.length > 0) {
-            resolve({ lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) });
+            resolve({
+              lat: parseFloat(results[0].lat),
+              lng: parseFloat(results[0].lon),
+              importance: results[0].importance || 0,
+              type: results[0].type || '',
+              cls: results[0].class || '',
+              displayName: results[0].display_name || '',
+            });
           } else {
             resolve(null);
           }

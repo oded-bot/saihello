@@ -41,7 +41,7 @@ export default function HostProfileModal({ userId, onClose }) {
     <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div
         className="bg-white dark:bg-dark-card rounded-t-3xl w-full max-w-md shadow-2xl overflow-y-auto"
-        style={{ maxHeight: '85vh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}
+        style={{ maxHeight: '75vh', marginBottom: 'calc(env(safe-area-inset-bottom, 0px) + 70px)', paddingBottom: '24px' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

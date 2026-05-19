@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
-import { MapPin, Clock, Users, Star, X, Heart, Flame, Filter, RefreshCw, PlusCircle, ChevronDown, Search, ChevronUp } from 'lucide-react';
+import { MapPin, Clock, Users, Star, X, Heart, Flame, Filter, RefreshCw, PlusCircle, ChevronDown, Search } from 'lucide-react';
 import api from '../../utils/api';
 import useLanguage from '../../hooks/useLanguage';
 import toast from 'react-hot-toast';
@@ -67,7 +67,7 @@ function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
 
         {/* Kategorie-Badge */}
         {offer.category && offer.category !== 'sonstiges' && (() => {
-          const map = { clubs: '🎵 Club', restaurants: '🍽️ Restaurant & Bar', kultur: '🎭 Kultur' };
+          const map = { clubs: '🎵 Club', restaurants: '🍽️ Restaurant & Bar', kultur: '🎭 Kultur', konzert: '🎤 Konzert', sport_aktiv: '🏃 Sport (aktiv)', sport_event: '🏟️ Sport (Ereignis)' };
           const label = map[offer.category];
           if (!label) return null;
           return (
@@ -117,7 +117,12 @@ function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
             </div>
             <div className="flex items-center gap-1">
               <Users size={12} />
-              <span>{offer.available_seats} {t('free')}</span>
+              <span>
+                {offer.available_seats} {t('free')}
+                {offer.seats_for_women > 0 && ` · ${offer.seats_for_women}♀`}
+                {offer.seats_for_men > 0 && ` · ${offer.seats_for_men}♂`}
+                {offer.seats_any_gender > 0 && ` · ${offer.seats_any_gender} ${t('anyGender')}`}
+              </span>
             </div>
           </div>
 
@@ -145,32 +150,6 @@ function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
             return null;
           })()}
 
-          {/* Geschlechts-Platz-Info */}
-          {(offer.seats_for_women > 0 || offer.seats_for_men > 0 || offer.seats_any_gender > 0) ? (
-            <div className="flex gap-1.5 mt-1.5 flex-wrap">
-              {offer.seats_for_women > 0 && (
-                <span className="bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded-full text-xs font-medium">
-                  {offer.seats_for_women}♀
-                </span>
-              )}
-              {offer.seats_for_men > 0 && (
-                <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full text-xs font-medium">
-                  {offer.seats_for_men}♂
-                </span>
-              )}
-              {offer.seats_any_gender > 0 && (
-                <span className="bg-white/15 text-white/70 px-2 py-0.5 rounded-full text-xs font-medium">
-                  {offer.seats_any_gender} {t('anyGender')}
-                </span>
-              )}
-            </div>
-          ) : (
-            <div className="mt-1.5">
-              <span className="bg-white/15 text-white/70 px-2 py-0.5 rounded-full text-xs font-medium">
-                {t('allWelcome')}
-              </span>
-            </div>
-          )}
 
           {(offer.group_age_min || offer.group_age_max) && (
             <div className="inline-block bg-white/15 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-xs font-medium mt-2">
@@ -190,6 +169,356 @@ function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
         </div>
       </div>
     </motion.div>
+  );
+}
+
+const WIZARD_CATEGORIES = [
+  { key: 'alle',        label: 'Egal / Alles',      emoji: '✨' },
+  { key: 'clubs',       label: 'Club / Bar',         emoji: '🎵' },
+  { key: 'restaurants', label: 'Restaurant',          emoji: '🍽️' },
+  { key: 'kultur',      label: 'Kultur & Events',    emoji: '🎭' },
+  { key: 'konzert',     label: 'Konzert',             emoji: '🎤' },
+  { key: 'sport_aktiv', label: 'Sport (aktiv)',       emoji: '🏃' },
+  { key: 'sport_event', label: 'Sport (Ereignis)',    emoji: '🏟️' },
+  { key: 'sonstiges',   label: 'Sonstiges',           emoji: '🔮' },
+];
+
+function SeekerWizard({ onClose, onActivate, loading }) {
+  const STEPS = 5;
+  const [step, setStep] = useState(1);
+  const [category, setCategory] = useState('alle');
+  const [dateMode, setDateMode] = useState(null); // 'today' | 'tomorrow' | 'other'
+  const [customDate, setCustomDate] = useState('');
+  const [timeFrom, setTimeFrom] = useState('18:00');
+  const [timeUntil, setTimeUntil] = useState('22:00');
+  const [persons, setPersons] = useState(1);
+  const [location, setLocation] = useState({ locationText: '', locationLat: null, locationLng: null });
+  const [locationChecking, setLocationChecking] = useState(false);
+  const [locationError, setLocationError]       = useState('');
+  const [geocodeConfirm, setGeocodeConfirm]     = useState(null);
+
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+  function getDate() {
+    if (dateMode === 'today') return today;
+    if (dateMode === 'tomorrow') return tomorrow;
+    if (dateMode === 'other') return customDate;
+    return '';
+  }
+
+  function formatDate(d) {
+    if (!d) return 'Kein Datum';
+    return new Date(d + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  function selectQuickDate(mode) {
+    setDateMode(mode);
+    setTimeout(() => setStep(3), 280);
+  }
+
+  const timeOptions = Array.from({ length: 48 }, (_, i) => {
+    const h = String(Math.floor(i / 2)).padStart(2, '0');
+    const m = i % 2 === 0 ? '00' : '30';
+    return `${h}:${m}`;
+  });
+
+  async function handleLocationNext() {
+    setLocationError('');
+    if (location.locationLat != null || !location.locationText?.trim()) {
+      setStep(s => s + 1);
+      return;
+    }
+    setLocationChecking(true);
+    try {
+      const { data } = await api.get('/tables/geocode-check', { params: { q: location.locationText.trim() } });
+      if (data.status === 'ok') {
+        setLocation(prev => ({ ...prev, locationLat: data.lat, locationLng: data.lng }));
+        setStep(s => s + 1);
+      } else if (data.status === 'needs_confirm') {
+        setGeocodeConfirm({ displayName: data.displayName, lat: data.lat, lng: data.lng });
+      } else {
+        setLocationError('Ort nicht gefunden. Bitte genauer eingeben oder GPS nutzen.');
+      }
+    } catch {
+      setLocationError('Verbindungsfehler. Bitte nochmals versuchen.');
+    } finally {
+      setLocationChecking(false);
+    }
+  }
+
+  function handleSubmit() {
+    onActivate({ date: getDate(), timeFrom, timeUntil, persons, location, category });
+  }
+
+  const progress = (step / STEPS) * 100;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100000, background: 'rgba(8,4,20,0.97)', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ padding: '16px 20px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          {step > 1 ? (
+            <button onClick={() => setStep(s => s - 1)} style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              ‹
+            </button>
+          ) : <div style={{ width: 36 }} />}
+          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>{step} / {STEPS}</span>
+          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18 }}>
+            ×
+          </button>
+        </div>
+        {/* Progress bar */}
+        <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg, #7C3AED, #EC4899)', borderRadius: 2, transition: 'width 0.3s ease' }} />
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '32px 24px 24px' }}>
+
+        {/* STEP 1: Kategorie */}
+        {step === 1 && (
+          <div>
+            <h2 style={{ color: 'white', fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Was suchst du?</h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, marginBottom: 32 }}>Wähle eine Aktivität für deine Suche.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {WIZARD_CATEGORIES.map(({ key, label, emoji }) => (
+                <button key={key} onClick={() => { setCategory(key); setTimeout(() => setStep(2), 200); }} style={{
+                  width: '100%', padding: '16px 20px', borderRadius: 16, cursor: 'pointer', textAlign: 'left',
+                  background: category === key ? 'linear-gradient(135deg, rgba(124,58,237,0.4), rgba(236,72,153,0.2))' : 'rgba(255,255,255,0.05)',
+                  border: category === key ? '1.5px solid rgba(124,58,237,0.8)' : '1.5px solid rgba(255,255,255,0.08)',
+                  display: 'flex', alignItems: 'center', gap: 16, transition: 'all 0.2s',
+                }}>
+                  <span style={{ fontSize: 26 }}>{emoji}</span>
+                  <div style={{ color: 'white', fontWeight: 600, fontSize: 16 }}>{label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: Datum */}
+        {step === 2 && (
+          <div>
+            <h2 style={{ color: 'white', fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Wann?</h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, marginBottom: 32 }}>Wähle ein Datum für deine Suche.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                { mode: 'today', label: 'Heute', sub: formatDate(today), emoji: '☀️' },
+                { mode: 'tomorrow', label: 'Morgen', sub: formatDate(tomorrow), emoji: '🌅' },
+              ].map(({ mode, label, sub, emoji }) => (
+                <button key={mode} onClick={() => selectQuickDate(mode)} style={{
+                  width: '100%', padding: '18px 20px', borderRadius: 18, cursor: 'pointer', textAlign: 'left',
+                  background: dateMode === mode ? 'linear-gradient(135deg, rgba(124,58,237,0.4), rgba(236,72,153,0.2))' : 'rgba(255,255,255,0.05)',
+                  border: dateMode === mode ? '1.5px solid rgba(124,58,237,0.8)' : '1.5px solid rgba(255,255,255,0.08)',
+                  display: 'flex', alignItems: 'center', gap: 16, transition: 'all 0.2s',
+                }}>
+                  <span style={{ fontSize: 28 }}>{emoji}</span>
+                  <div>
+                    <div style={{ color: 'white', fontWeight: 700, fontSize: 17 }}>{label}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>{sub}</div>
+                  </div>
+                </button>
+              ))}
+
+              <button onClick={() => setDateMode(dateMode === 'other' ? null : 'other')} style={{
+                width: '100%', padding: '18px 20px', borderRadius: 18, cursor: 'pointer', textAlign: 'left',
+                background: dateMode === 'other' ? 'linear-gradient(135deg, rgba(124,58,237,0.4), rgba(236,72,153,0.2))' : 'rgba(255,255,255,0.05)',
+                border: dateMode === 'other' ? '1.5px solid rgba(124,58,237,0.8)' : '1.5px solid rgba(255,255,255,0.08)',
+                display: 'flex', alignItems: 'center', gap: 16,
+              }}>
+                <span style={{ fontSize: 28 }}>📅</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: 'white', fontWeight: 700, fontSize: 17 }}>Anderes Datum</div>
+                  <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>Datum auswählen</div>
+                </div>
+              </button>
+
+              {dateMode === 'other' && (
+                <div style={{ marginTop: -4 }}>
+                  <input type="date" value={customDate} min={today}
+                    onChange={e => setCustomDate(e.target.value)}
+                    style={{ width: '100%', padding: '14px 16px', borderRadius: 14, background: 'rgba(255,255,255,0.08)', border: '1.5px solid rgba(124,58,237,0.6)', color: 'white', fontSize: 15, outline: 'none', boxSizing: 'border-box' }}
+                  />
+                  {customDate && (
+                    <button onClick={() => setStep(3)} style={{
+                      marginTop: 12, width: '100%', padding: '14px', borderRadius: 14, cursor: 'pointer',
+                      background: 'linear-gradient(135deg, #7C3AED, #EC4899)', color: 'white', fontWeight: 700, fontSize: 15, border: 'none',
+                    }}>Weiter →</button>
+                  )}
+                </div>
+              )}
+
+              <button onClick={() => { setDateMode(null); setStep(3); }} style={{
+                color: 'rgba(255,255,255,0.35)', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0', textAlign: 'center',
+              }}>Ohne Datum fortfahren</button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: Zeitfenster */}
+        {step === 3 && (
+          <div>
+            <h2 style={{ color: 'white', fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Wann genau?</h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, marginBottom: 32 }}>In welchem Zeitfenster bist du verfügbar?</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div>
+                <label style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Von</label>
+                <div style={{ position: 'relative' }}>
+                  <select value={timeFrom} onChange={e => setTimeFrom(e.target.value)} style={{
+                    width: '100%', padding: '16px 20px', borderRadius: 16, background: 'rgba(255,255,255,0.08)',
+                    border: '1.5px solid rgba(124,58,237,0.5)', color: 'white', fontSize: 20, fontWeight: 700,
+                    appearance: 'none', outline: 'none', cursor: 'pointer', boxSizing: 'border-box',
+                  }}>
+                    {timeOptions.map(t => <option key={t} value={t} style={{ background: '#1a0a2e' }}>{t} Uhr</option>)}
+                  </select>
+                  <ChevronDown size={16} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', pointerEvents: 'none' }} />
+                </div>
+              </div>
+              <div>
+                <label style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Bis</label>
+                <div style={{ position: 'relative' }}>
+                  <select value={timeUntil} onChange={e => setTimeUntil(e.target.value)} style={{
+                    width: '100%', padding: '16px 20px', borderRadius: 16, background: 'rgba(255,255,255,0.08)',
+                    border: '1.5px solid rgba(124,58,237,0.5)', color: 'white', fontSize: 20, fontWeight: 700,
+                    appearance: 'none', outline: 'none', cursor: 'pointer', boxSizing: 'border-box',
+                  }}>
+                    {timeOptions.map(t => <option key={t} value={t} style={{ background: '#1a0a2e' }}>{t} Uhr</option>)}
+                  </select>
+                  <ChevronDown size={16} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', pointerEvents: 'none' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: Personen + Ort */}
+        {step === 4 && (
+          <div>
+            <h2 style={{ color: 'white', fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Wie viele seid ihr?</h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, marginBottom: 36 }}>Und wo möchtet ihr hin?</p>
+
+            {/* Stepper */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 32, marginBottom: 40 }}>
+              <button onClick={() => setPersons(p => Math.max(1, p - 1))} style={{
+                width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,255,255,0.08)',
+                border: '1.5px solid rgba(255,255,255,0.15)', color: 'white', fontSize: 28, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>−</button>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: 'white', fontSize: 52, fontWeight: 800, lineHeight: 1 }}>{persons}</div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 6 }}>{persons === 1 ? 'Person' : 'Personen'}</div>
+              </div>
+              <button onClick={() => setPersons(p => Math.min(20, p + 1))} style={{
+                width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(124,58,237,0.6), rgba(236,72,153,0.4))',
+                border: '1.5px solid rgba(124,58,237,0.6)', color: 'white', fontSize: 28, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>+</button>
+            </div>
+
+            {/* Optional Ort */}
+            <div>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Ort (optional)</p>
+              <LocationPicker onLocationChange={(loc) => { setLocation(loc); setLocationError(''); }} />
+              {locationError && (
+                <div style={{
+                  marginTop: 12, padding: '10px 14px', borderRadius: 12,
+                  background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+                  color: '#fca5a5', fontSize: 13, lineHeight: 1.4,
+                }}>
+                  {locationError}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 5: Zusammenfassung */}
+        {step === 5 && (
+          <div>
+            <h2 style={{ color: 'white', fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Alles korrekt?</h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, marginBottom: 28 }}>Überprüfe deine Angaben.</p>
+
+            <div style={{ borderRadius: 20, overflow: 'hidden', border: '1.5px solid rgba(124,58,237,0.3)', marginBottom: 28 }}>
+              {[
+                { icon: '🎯', label: 'Aktivität', value: WIZARD_CATEGORIES.find(c => c.key === category)?.label || 'Egal / Alles' },
+                { icon: '📅', label: 'Datum', value: getDate() ? formatDate(getDate()) : 'Alle Tage' },
+                { icon: '🕐', label: 'Zeitfenster', value: `${timeFrom} – ${timeUntil} Uhr` },
+                { icon: '👥', label: 'Personen', value: `${persons} ${persons === 1 ? 'Person' : 'Personen'}` },
+                { icon: '📍', label: 'Ort', value: location.locationText || 'Nicht angegeben' },
+              ].map(({ icon, label, value }, i, arr) => (
+                <div key={label} style={{
+                  padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14,
+                  background: i % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
+                  borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                }}>
+                  <span style={{ fontSize: 22, width: 28, textAlign: 'center' }}>{icon}</span>
+                  <div>
+                    <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
+                    <div style={{ color: 'white', fontSize: 15, fontWeight: 600, marginTop: 2 }}>{value}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Geocode-Bestätigungs-Dialog */}
+      {geocodeConfirm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'rgba(18,10,35,0.98)', border: '1.5px solid rgba(124,58,237,0.5)', borderRadius: 20, padding: 24, width: '100%', maxWidth: 340 }}>
+            <p style={{ color: 'white', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Meintest du diesen Ort?</p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 24, lineHeight: 1.4 }}>{geocodeConfirm.displayName}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <button
+                onClick={() => {
+                  setLocation(prev => ({ ...prev, locationText: geocodeConfirm.displayName, locationLat: geocodeConfirm.lat, locationLng: geocodeConfirm.lng }));
+                  setGeocodeConfirm(null);
+                  setStep(s => s + 1);
+                }}
+                style={{ width: '100%', padding: '12px', borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7C3AED, #EC4899)', color: 'white', fontWeight: 700, fontSize: 14 }}
+              >
+                Ja, das stimmt
+              </button>
+              <button
+                onClick={() => setGeocodeConfirm(null)}
+                style={{ width: '100%', padding: '12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.10)', cursor: 'pointer', background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', fontWeight: 500, fontSize: 14 }}
+              >
+                Nein, neu eingeben
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer — Step 1 hat keinen Weiter-Button (Kategorie-Auswahl navigiert automatisch) */}
+      <div style={{ padding: '12px 24px 32px' }}>
+        {step === 1 ? null : step < 5 ? (
+          <button
+            onClick={step === 4 ? handleLocationNext : () => setStep(s => s + 1)}
+            disabled={step === 4 && locationChecking}
+            style={{
+              width: '100%', padding: '16px', borderRadius: 18, cursor: locationChecking ? 'not-allowed' : 'pointer',
+              background: 'linear-gradient(135deg, #7C3AED, #EC4899)', color: 'white', fontWeight: 800, fontSize: 16, border: 'none',
+              boxShadow: '0 4px 20px rgba(124,58,237,0.4)', opacity: locationChecking ? 0.6 : 1,
+            }}
+          >
+            {step === 4 && locationChecking ? 'Ort wird geprüft…' : 'Weiter →'}
+          </button>
+        ) : (
+          <button onClick={handleSubmit} disabled={loading} style={{
+            width: '100%', padding: '16px', borderRadius: 18, cursor: loading ? 'not-allowed' : 'pointer',
+            background: loading ? 'rgba(124,58,237,0.3)' : 'linear-gradient(135deg, #7C3AED, #EC4899)',
+            color: 'white', fontWeight: 800, fontSize: 16, border: 'none',
+            boxShadow: loading ? 'none' : '0 4px 20px rgba(124,58,237,0.4)',
+          }}>
+            {loading ? 'Wird aktiviert...' : '🔍 Suche aktivieren'}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -215,9 +544,7 @@ export default function SwipeScreen() {
   const [conflictingOffer, setConflictingOffer] = useState(null);
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [activeSearch, setActiveSearch] = useState(null);
-  const [showSeekerForm, setShowSeekerForm] = useState(false);
-  const [seekerForm, setSeekerForm] = useState({ date: '', timeFrom: '', timeUntil: '' });
-  const [seekerLocation, setSeekerLocation] = useState({ locationText: '', locationLat: null, locationLng: null });
+  const [showSeekerWizard, setShowSeekerWizard] = useState(false);
   const [seekerLoading, setSeekerLoading] = useState(false);
   const pollRef = useRef(null);
   const { t } = useLanguage();
@@ -233,27 +560,29 @@ export default function SwipeScreen() {
     try {
       const { data } = await api.get('/seeker/my');
       setActiveSearch(data);
+      if (data?.category && data.category !== 'alle') {
+        setCategoryFilter(data.category);
+        loadOffers(data.category);
+      }
     } catch (err) {}
   }
 
-  async function activateSearch() {
-    if (!seekerLocation.locationText && seekerLocation.locationLat == null) {
-      toast.error('Bitte einen Ort angeben.');
-      return;
-    }
+  async function activateSearch({ date, timeFrom, timeUntil, persons, location, category }) {
     setSeekerLoading(true);
     try {
       await api.post('/seeker', {
-        locationText: seekerLocation.locationText || undefined,
-        locationLat: seekerLocation.locationLat || undefined,
-        locationLng: seekerLocation.locationLng || undefined,
-        date: seekerForm.date || undefined,
-        timeFrom: seekerForm.timeFrom || undefined,
-        timeUntil: seekerForm.timeUntil || undefined,
+        locationText: location?.locationText || undefined,
+        locationLat: location?.locationLat || undefined,
+        locationLng: location?.locationLng || undefined,
+        date: date || undefined,
+        timeFrom: timeFrom || undefined,
+        timeUntil: timeUntil || undefined,
+        persons: persons || undefined,
+        category: category || 'alle',
       });
       toast.success(t('searchCreated'));
       await loadActiveSearch();
-      setShowSeekerForm(false);
+      setShowSeekerWizard(false);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Fehler beim Aktivieren der Suche');
     } finally {
@@ -473,78 +802,15 @@ export default function SwipeScreen() {
       ) : (
         <div className="mb-3">
           <button
-            onClick={() => setShowSeekerForm(v => !v)}
+            onClick={() => setShowSeekerWizard(true)}
             className="w-full flex items-center justify-between px-4 py-3 glass rounded-2xl border border-white/10 active:scale-[0.99] transition"
           >
             <div className="flex items-center gap-2">
               <Search size={16} className="text-app-violet" />
               <span className="text-sm font-semibold text-white">{t('mySearch')}</span>
             </div>
-            {showSeekerForm ? <ChevronUp size={16} className="text-white/40" /> : <ChevronDown size={16} className="text-white/40" />}
+            <ChevronDown size={16} className="text-white/40" />
           </button>
-
-          {showSeekerForm && (
-            <div className="mt-2 bg-dark-card rounded-2xl p-4 border border-dark-separator space-y-3">
-              <LocationPicker onLocationChange={setSeekerLocation} />
-
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">{t('date')} ({t('optional')})</label>
-                <input
-                  type="date"
-                  value={seekerForm.date}
-                  onChange={(e) => setSeekerForm(f => ({ ...f, date: e.target.value }))}
-                  className="w-full px-3 py-2 bg-dark-elevated border border-dark-separator rounded-xl text-white text-sm focus:outline-none focus:border-app-violet"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block">{t('timeFrom')} ({t('optional')})</label>
-                  <div className="relative">
-                    <select
-                      value={seekerForm.timeFrom}
-                      onChange={(e) => setSeekerForm(f => ({ ...f, timeFrom: e.target.value }))}
-                      className="w-full px-3 py-2 bg-dark-elevated border border-dark-separator rounded-xl text-white text-sm focus:outline-none focus:border-app-violet appearance-none"
-                    >
-                      <option value="">--:--</option>
-                      {Array.from({ length: 48 }).map((_, i) => {
-                        const h = String(Math.floor(i / 2)).padStart(2, '0');
-                        const m = i % 2 === 0 ? '00' : '30';
-                        return <option key={i} value={`${h}:${m}`}>{h}:{m}</option>;
-                      })}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block">{t('timeUntil')} ({t('optional')})</label>
-                  <div className="relative">
-                    <select
-                      value={seekerForm.timeUntil}
-                      onChange={(e) => setSeekerForm(f => ({ ...f, timeUntil: e.target.value }))}
-                      className="w-full px-3 py-2 bg-dark-elevated border border-dark-separator rounded-xl text-white text-sm focus:outline-none focus:border-app-violet appearance-none"
-                    >
-                      <option value="">--:--</option>
-                      {Array.from({ length: 48 }).map((_, i) => {
-                        const h = String(Math.floor(i / 2)).padStart(2, '0');
-                        const m = i % 2 === 0 ? '00' : '30';
-                        return <option key={i} value={`${h}:${m}`}>{h}:{m}</option>;
-                      })}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={activateSearch}
-                disabled={seekerLoading}
-                className="w-full py-3 tinder-gradient text-white font-bold rounded-2xl text-sm active:scale-95 transition disabled:opacity-50 gradient-glow"
-              >
-                {seekerLoading ? '...' : t('activateSearch')}
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -555,6 +821,9 @@ export default function SwipeScreen() {
           { key: 'clubs', label: '🎵 ' + t('categoryClubs') },
           { key: 'restaurants', label: '🍽️ ' + t('categoryRestaurants') },
           { key: 'kultur', label: '🎭 ' + t('categoryKultur') },
+          { key: 'konzert', label: '🎤 ' + t('categoryKonzert') },
+          { key: 'sport_aktiv', label: '🏃 ' + t('categorySportAktiv') },
+          { key: 'sport_event', label: '🏟️ ' + t('categorySportEvent') },
           { key: 'sonstiges', label: '✨ ' + t('categorySonstiges') },
         ].map(({ key, label }) => (
           <button
@@ -800,6 +1069,15 @@ export default function SwipeScreen() {
       {/* Lightbox */}
       {lightboxSrc && (
         <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
+
+      {/* Seeker Wizard */}
+      {showSeekerWizard && (
+        <SeekerWizard
+          onClose={() => setShowSeekerWizard(false)}
+          onActivate={activateSearch}
+          loading={seekerLoading}
+        />
       )}
     </div>
   );

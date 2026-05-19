@@ -1,6 +1,6 @@
 {
   "appId": "de.servuswiesn.app",
-  "appName": "Servus Wiesn",
+  "appName": "SaiHello",
   "webDir": "dist",
   "server": {
     "url": "https://servuswiesn.de",

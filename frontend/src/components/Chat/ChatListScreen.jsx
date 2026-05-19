@@ -10,7 +10,7 @@ export default function ChatListScreen() {
   const [loading, setLoading] = useState(true);
   const [deleteMenu, setDeleteMenu] = useState(null); // { id, name, y }
   const longPressRef = useRef(null);
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -59,11 +59,11 @@ export default function ChatListScreen() {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return t('now');
-    if (mins < 60) return `${mins}m`;
+    if (mins < 60) return lang === 'en' ? `${mins}m ago` : `vor ${mins}m`;
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h`;
+    if (hours < 24) return lang === 'en' ? `${hours}h ago` : `vor ${hours}h`;
     const days = Math.floor(hours / 24);
-    return `${days}d`;
+    return lang === 'en' ? `${days}d ago` : `vor ${days}d`;
   }
 
   if (loading) {
@@ -126,7 +126,9 @@ export default function ChatListScreen() {
                   <p className={`text-sm truncate max-w-[200px] ${
                     match.unread_count > 0 ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-500 dark:text-gray-400'
                   }`}>
-                    {match.last_message || `Match in ${match.tent_name}`}
+                    {match.last_message && !match.last_message.startsWith('Match!') && !match.last_message.startsWith('✅')
+                      ? match.last_message
+                      : t('newMatch')}
                   </p>
                   {match.unread_count > 0 && (
                     <div className="w-5 h-5 tinder-gradient rounded-full flex items-center justify-center shrink-0">

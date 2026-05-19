@@ -26,9 +26,17 @@ function hasOpenSearchActivity(userId) {
   return count.c > 0;
 }
 
+const TEST_USER_IDS = (process.env.TEST_USER_IDS || '206b4eb0-3686-4a7a-adbc-e55b1ddb9a2f').split(',').map(s => s.trim());
+
+function isTestUser(userId) {
+  return TEST_USER_IDS.includes(userId);
+}
+
 // Middleware: Kann der User suchen (Discover)?
 // Nur sperren wenn das gesuchte Zeitfenster mit einem aktiven Angebot kollidiert.
 function canSearch(req, res, next) {
+  if (isTestUser(req.user.id)) return next();
+
   const { date, timeFrom, timeUntil } = req.query;
   const offers = db.prepare(
     "SELECT id, date, time_from, time_until, location_text FROM table_offers WHERE user_id = ? AND status = 'active'"
@@ -60,6 +68,8 @@ function canSearch(req, res, next) {
 
 // Middleware: Kann der User ein Angebot erstellen?
 function canOffer(req, res, next) {
+  if (isTestUser(req.user.id)) return next();
+
   if (hasOpenSearchActivity(req.user.id)) {
     return res.status(403).json({
       error: 'Du bist gerade am Suchen. Schließe erst deine aktiven Matches ab, bevor du einen Platz anbietest.',

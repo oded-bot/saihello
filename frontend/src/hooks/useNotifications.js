@@ -67,7 +67,7 @@ const useNotificationStore = create((set, get) => ({
                 new Notification(notification.sender, {
                   body: notification.content,
                   icon: '/favicon.ico',
-                  tag: 'servuswiesn-' + notification.matchId,
+                  tag: 'saihello-' + notification.matchId,
                 });
               } catch(e) {}
             }

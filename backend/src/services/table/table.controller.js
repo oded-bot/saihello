@@ -2,6 +2,23 @@ const { v4: uuid } = require('uuid');
 const db = require('../../config/database');
 const { geocode } = require('../../lib/geocode');
 
+
+function isConfident(geo) {
+  // Nur weltbekannte Orte (große Städte, Landmarks) werden direkt akzeptiert.
+  // POIs wie Restaurants, Bars etc. erfordern immer eine Nutzer-Bestätigung.
+  return geo.importance >= 0.5;
+}
+
+async function geocodeCheck(req, res) {
+  const { q } = req.query;
+  if (!q || !q.trim()) return res.json({ status: 'missing' });
+  const geo = await geocode(q.trim());
+  if (!geo) return res.json({ status: 'not_found' });
+  const input = q.trim();
+  if (!isConfident(geo)) return res.json({ status: 'needs_confirm', displayName: geo.displayName, lat: geo.lat, lng: geo.lng });
+  return res.json({ status: 'ok', lat: geo.lat, lng: geo.lng, displayName: geo.displayName });
+}
+
 function getTents(req, res) {
   try {
     const tents = db.prepare(
@@ -44,8 +61,30 @@ async function createOffer(req, res) {
     let finalLng = locationLng != null ? parseFloat(locationLng) : null;
 
     if (locationText && finalLat == null) {
-      const coords = await geocode(locationText);
-      if (coords) { finalLat = coords.lat; finalLng = coords.lng; }
+      const geo = await geocode(locationText);
+      if (!geo) {
+        return res.status(422).json({
+          error: 'Ort nicht gefunden. Bitte gib eine genauere Adresse ein oder nutze "Mein Standort".',
+          code: 'GEOCODE_FAILED',
+        });
+      }
+      if (!isConfident(geo)) {
+        return res.status(422).json({
+          code: 'GEOCODE_NEEDS_CONFIRM',
+          displayName: geo.displayName,
+          lat: geo.lat,
+          lng: geo.lng,
+        });
+      }
+      finalLat = geo.lat;
+      finalLng = geo.lng;
+    }
+
+    if (finalLat == null) {
+      return res.status(422).json({
+        error: 'Bitte gib einen Ort an oder nutze "Mein Standort".',
+        code: 'LOCATION_MISSING',
+      });
     }
 
     const offerId = uuid();
@@ -79,6 +118,20 @@ async function createOffer(req, res) {
 
 function getMyOffers(req, res) {
   try {
+    // Zeitlich abgelaufene aktive Angebote als expired markieren
+    db.prepare(`
+      UPDATE table_offers SET status = 'expired'
+      WHERE user_id = ? AND status = 'active'
+        AND datetime(date || ' ' || time_until) < datetime('now', 'localtime')
+    `).run(req.user.id);
+
+    // Abgelaufene Angebote nach 24 Stunden endgültig löschen
+    db.prepare(`
+      DELETE FROM table_offers
+      WHERE user_id = ?
+        AND datetime(date || ' ' || time_until) < datetime('now', 'localtime', '-24 hours')
+    `).run(req.user.id);
+
     const offers = db.prepare(`
       SELECT o.*,
              (SELECT COUNT(*) FROM matches m WHERE m.offer_id = o.id AND m.status = 'active') as match_count
@@ -115,7 +168,7 @@ function updateOffer(req, res) {
 
     // Fix 9: 'completed' als erlaubten Status hinzufügen
     const allowedFields = [
-      'available_seats', 'time_from', 'time_until', 'preferred_genders',
+      'available_seats', 'date', 'time_from', 'time_until', 'preferred_genders',
       'preferred_age_min', 'preferred_age_max', 'description',
       'group_description', 'photo_url', 'price_per_seat', 'status',
       'seats_for_women', 'seats_for_men', 'seats_any_gender',
@@ -216,6 +269,14 @@ function deleteOffer(req, res) {
   }
 }
 
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
 function discoverOffers(req, res) {
   try {
     const userId = req.user.id;
@@ -225,6 +286,10 @@ function discoverOffers(req, res) {
     if (!profile) {
       return res.status(400).json({ error: 'Profil nicht vollständig' });
     }
+
+    const seekerSearch = db.prepare('SELECT location_lat, location_lng FROM seeker_searches WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1').get(userId, 'active');
+    const seekerLat = seekerSearch?.location_lat ?? null;
+    const seekerLng = seekerSearch?.location_lng ?? null;
 
     let query = `
       SELECT o.id, o.total_seats, o.available_seats, o.date, o.time_from, o.time_until,
@@ -257,10 +322,12 @@ function discoverOffers(req, res) {
       query += ' AND o.available_seats >= ?';
       params.push(parseInt(minSeats));
     }
-    if (category && category !== 'alle') {
-      query += ' AND o.category = ?';
+    if (category && category !== 'alle' && category !== 'sonstiges') {
+      // Wildcard: Angebote mit 'sonstiges' erscheinen bei jedem Kategorie-Filter
+      query += ' AND (o.category = ? OR o.category = \'sonstiges\')';
       params.push(category);
     }
+    // Sucht jemand explizit 'sonstiges' → kein Kategorie-Filter, alle Angebote sichtbar
 
     query += ' ORDER BY o.date ASC, o.time_from ASC LIMIT 50';
 
@@ -338,6 +405,11 @@ function discoverOffers(req, res) {
         o.full_overlap = overlapMinutes >= searchMinutes;
       }
 
+      // Distanzfilter: max. 10 km (nur wenn beide Koordinaten vorliegen)
+      if (seekerLat !== null && seekerLng !== null && o.location_lat !== null && o.location_lng !== null) {
+        if (haversineKm(seekerLat, seekerLng, o.location_lat, o.location_lng) > 10) return false;
+      }
+
       return true;
     });
 
@@ -348,4 +420,4 @@ function discoverOffers(req, res) {
   }
 }
 
-module.exports = { getTents, createOffer, getMyOffers, updateOffer, deleteOffer, discoverOffers };
+module.exports = { getTents, geocodeCheck, createOffer, getMyOffers, updateOffer, deleteOffer, discoverOffers };

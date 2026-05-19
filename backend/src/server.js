@@ -33,11 +33,12 @@ app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 
-// Rate Limiting
+// Rate Limiting (localhost ausgenommen)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
   message: { error: 'Zu viele Anfragen. Bitte warte kurz.' },
+  skip: (req) => req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1',
 });
 app.use(limiter);
 
@@ -67,7 +68,7 @@ app.use('/api/yesterday', require('./services/yesterday/yesterday.routes'));
 
 // Health Check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', name: 'Servus Wiesn API', version: '1.0.0' });
+  res.json({ status: 'ok', name: 'SaiHello API', version: '1.0.0' });
 });
 
 // WebSocket Chat
@@ -82,7 +83,7 @@ require('./services/matching/matching.controller').setIo(io);
 
 // Start
 server.listen(PORT, () => {
-  console.log(`\n  Servus Wiesn Backend`);
+  console.log(`\n  SaiHello Backend`);
   console.log(`  API:       http://localhost:${PORT}/api`);
   console.log(`  WebSocket: ws://localhost:${PORT}`);
   console.log(`  Health:    http://localhost:${PORT}/api/health\n`);

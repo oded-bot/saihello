@@ -7,10 +7,13 @@ import toast from 'react-hot-toast';
 import LocationPicker from '../Shared/LocationPicker';
 
 const CATEGORIES = [
-  { key: 'clubs',       label: 'Club / Bar',      emoji: '🎵' },
-  { key: 'restaurants', label: 'Restaurant',       emoji: '🍽️' },
-  { key: 'kultur',      label: 'Kultur & Events',  emoji: '🎭' },
-  { key: 'sonstiges',   label: 'Sonstiges',        emoji: '✨' },
+  { key: 'clubs',        label: 'Club / Bar',        emoji: '🎵' },
+  { key: 'restaurants',  label: 'Restaurant',         emoji: '🍽️' },
+  { key: 'kultur',       label: 'Kultur & Events',    emoji: '🎭' },
+  { key: 'konzert',      label: 'Konzert',            emoji: '🎤' },
+  { key: 'sport_aktiv',  label: 'Sport (aktiv)',      emoji: '🏃' },
+  { key: 'sport_event',  label: 'Sport (Ereignis)',   emoji: '🏟️' },
+  { key: 'sonstiges',    label: 'Sonstiges',          emoji: '✨' },
 ];
 
 const TIME_OPTIONS = Array.from({ length: 48 }).map((_, i) => {
@@ -41,9 +44,36 @@ function OfferWizard({ onCancel, onSuccess }) {
   const [photo, setPhoto]               = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [description, setDescription]   = useState('');
+  const [geocodeConfirm, setGeocodeConfirm] = useState(null); // { displayName, lat, lng }
+  const [locationChecking, setLocationChecking] = useState(false);
+  const [locationError, setLocationError] = useState('');
 
   function next() { setStep(s => s + 1); }
   function back() { step === 1 ? onCancel() : setStep(s => s - 1); }
+
+  async function handleLocationNext() {
+    setLocationError('');
+    if (location.locationLat != null || !location.locationText?.trim()) {
+      next();
+      return;
+    }
+    setLocationChecking(true);
+    try {
+      const { data } = await api.get('/tables/geocode-check', { params: { q: location.locationText.trim() } });
+      if (data.status === 'ok') {
+        setLocation(prev => ({ ...prev, locationLat: data.lat, locationLng: data.lng }));
+        next();
+      } else if (data.status === 'needs_confirm') {
+        setGeocodeConfirm({ displayName: data.displayName, lat: data.lat, lng: data.lng });
+      } else {
+        setLocationError('Ort nicht gefunden. Bitte genauer eingeben (z.B. "Bratwurstglöcklein, München") oder GPS nutzen.');
+      }
+    } catch {
+      setLocationError('Verbindungsfehler. Bitte nochmals versuchen.');
+    } finally {
+      setLocationChecking(false);
+    }
+  }
 
   function handlePhotoSelect(e) {
     const file = e.target.files?.[0];
@@ -90,8 +120,15 @@ function OfferWizard({ onCancel, onSuccess }) {
       toast.success('Angebot veröffentlicht! 🎉');
       onSuccess();
     } catch (err) {
-      if (err.response?.data?.code === 'ROLE_LOCKED_SEARCHING') {
+      const code = err.response?.data?.code;
+      if (code === 'ROLE_LOCKED_SEARCHING') {
         toast.error('Du suchst gerade selbst einen Platz. Wechsle erst deine Rolle.');
+      } else if (code === 'GEOCODE_NEEDS_CONFIRM') {
+        const { displayName, lat, lng } = err.response.data;
+        setGeocodeConfirm({ displayName, lat, lng });
+      } else if (code === 'GEOCODE_FAILED' || code === 'LOCATION_MISSING') {
+        toast.error(err.response.data.error, { duration: 5000 });
+        setStep(2);
       } else {
         toast.error(err.response?.data?.error || 'Fehler beim Veröffentlichen');
       }
@@ -138,10 +175,24 @@ function OfferWizard({ onCancel, onSuccess }) {
           <div className="flex-1 flex flex-col px-6 pt-6 overflow-y-auto">
             <h2 className="text-2xl font-black text-white mb-1">Wo findet es statt?</h2>
             <p className="text-white/50 text-sm mb-8">Optional — du kannst das auch überspringen</p>
-            <LocationPicker onLocationChange={setLocation} />
-            <div className="mt-8 space-y-3 pb-6">
-              <button onClick={next} className="w-full py-4 rounded-2xl text-white font-bold text-base" style={btnGrad}>
-                Weiter
+            <LocationPicker onLocationChange={(loc) => { setLocation(loc); setLocationError(''); }} />
+            {locationError && (
+              <div style={{
+                marginTop: 12, padding: '10px 14px', borderRadius: 12,
+                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+                color: '#fca5a5', fontSize: 13, lineHeight: 1.4,
+              }}>
+                {locationError}
+              </div>
+            )}
+            <div className="mt-6 space-y-3 pb-6">
+              <button
+                onClick={handleLocationNext}
+                disabled={locationChecking}
+                className="w-full py-4 rounded-2xl text-white font-bold text-base disabled:opacity-60"
+                style={btnGrad}
+              >
+                {locationChecking ? 'Ort wird geprüft…' : 'Weiter'}
               </button>
               <button onClick={next} className="w-full py-3 text-white/30 text-sm">Überspringen</button>
             </div>
@@ -400,7 +451,7 @@ function OfferWizard({ onCancel, onSuccess }) {
 
             <div className="pb-6">
               <button
-                onClick={handleSubmit}
+                onClick={() => handleSubmit()}
                 disabled={submitting}
                 className="w-full py-4 rounded-2xl text-white font-bold text-base disabled:opacity-50"
                 style={btnGrad}
@@ -448,6 +499,49 @@ function OfferWizard({ onCancel, onSuccess }) {
       </div>
 
       {renderStep()}
+
+      {/* Geocode-Bestätigungs-Dialog */}
+      {geocodeConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200000,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '24px',
+        }}>
+          <div style={{
+            background: 'rgba(18,10,35,0.98)',
+            border: '1.5px solid rgba(124,58,237,0.5)',
+            borderRadius: '20px',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '340px',
+          }}>
+            <p className="text-white font-bold text-base mb-2">Meintest du diesen Ort?</p>
+            <p className="text-white/60 text-sm mb-6 leading-relaxed">{geocodeConfirm.displayName}</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  const { lat, lng } = geocodeConfirm;
+                  setLocation(prev => ({ ...prev, locationLat: lat, locationLng: lng }));
+                  setGeocodeConfirm(null);
+                  next();
+                }}
+                className="w-full py-3 rounded-xl text-white font-bold text-sm"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
+              >
+                Ja, das stimmt
+              </button>
+              <button
+                onClick={() => { setGeocodeConfirm(null); setStep(2); }}
+                className="w-full py-3 rounded-xl text-white/60 font-medium text-sm"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
+              >
+                Nein, neu eingeben
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -458,6 +552,7 @@ function EditForm({ offer, onCancel, onSaved }) {
   const { t } = useLanguage();
   const [form, setForm] = useState({
     availableSeats: offer.available_seats?.toString() || '',
+    date:           offer.date || '',
     timeFrom:       offer.time_from || '',
     timeUntil:      offer.time_until || '',
     groupDescription: offer.group_description || '',
@@ -479,6 +574,7 @@ function EditForm({ offer, onCancel, onSaved }) {
       const sfm = genderEgal ? 0 : seatsForMen;
       await api.patch(`/tables/offers/${offer.id}`, {
         availableSeats:  avail,
+        date:            form.date || undefined,
         timeFrom:        form.timeFrom,
         timeUntil:       form.timeUntil,
         groupDescription: form.groupDescription || undefined,
@@ -509,6 +605,11 @@ function EditForm({ offer, onCancel, onSaved }) {
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pt-4 pb-6 space-y-5">
+        <div>
+          <label className="text-white/60 text-xs uppercase tracking-wide block mb-2">Datum</label>
+          <input type="date" value={form.date} onChange={e => update('date', e.target.value)} className={inp} style={inpStyle} />
+        </div>
+
         <div>
           <label className="text-white/60 text-xs uppercase tracking-wide block mb-2">Freie Plätze</label>
           <input type="number" min={0} value={form.availableSeats} onChange={e => update('availableSeats', e.target.value)} className={inp} style={inpStyle} />

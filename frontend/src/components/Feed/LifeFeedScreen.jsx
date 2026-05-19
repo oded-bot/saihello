@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Plus, Heart, MessageCircle, Send, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronLeft, Plus, Heart, MessageCircle, Send, X, ChevronUp, ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { connectSocket, getSocket } from '../../utils/socket';
@@ -98,51 +98,84 @@ function CommentPanel({ videoId, onClose, onCountChange, liveComment }) {
 
 // ─── Floating Comment Overlay (TikTok-Live-Stil) ─────────────────────────────
 
-function FloatingCommentOverlay({ comments }) {
-  if (comments.length === 0) return null;
+function CommentBubble({ comment }) {
+  const bubbleRef = useRef(null);
+  const [bubbleW, setBubbleW] = useState(180);
+
+  useLayoutEffect(() => {
+    if (bubbleRef.current) setBubbleW(bubbleRef.current.offsetWidth);
+  }, [comment?.key]);
+
+  if (!comment) return null;
+
+  // Tip x: comment icon is at 50vw; container starts at left: 12px
+  const tipX = (typeof window !== 'undefined' ? window.innerWidth : 390) * 0.5 - 12;
+  const tailH = 29;
+
   return (
     <div style={{
       position: 'fixed',
-      bottom: '90px',
+      bottom: '55px',
       left: '12px',
       zIndex: 9999,
       pointerEvents: 'none',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-      maxWidth: '80vw',
     }}>
-      {comments.map(c => (
-        <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', animation: 'floatCommentIn 0.35s ease-out both' }}>
-          <div style={{
-            width: 24, height: 24, borderRadius: '50%',
-            background: 'rgba(0,0,0,0.6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 12, flexShrink: 0, color: 'white',
-          }}>
-            {c.photo ? <img src={c.photo} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} alt="" /> : (c.emoji || '👤')}
-          </div>
-          <div style={{
-            background: 'rgba(0,0,0,0.6)',
-            borderRadius: 20,
-            padding: '4px 12px',
-            color: 'white',
-            fontSize: 13,
-            fontWeight: 400,
-            textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-          }}>
-            <span style={{ fontWeight: 600, marginRight: 6, opacity: 0.8 }}>{c.display_name}</span>
-            {c.text}
-          </div>
+      {/* Bubble — left-aligned, auto-width */}
+      <div
+        ref={bubbleRef}
+        key={comment.key}
+        style={{
+          background: 'rgba(15,8,30,0.96)',
+          border: '1.5px solid rgba(124,58,237,0.75)',
+          borderRadius: '16px',
+          padding: '10px 14px',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 0 12px rgba(124,58,237,0.15)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '10px',
+          animation: 'bubbleIn 0.35s ease-out both',
+          maxWidth: '68vw',
+        }}
+      >
+        <div style={{
+          width: 30, height: 30, borderRadius: '50%',
+          background: 'rgba(124,58,237,0.2)',
+          border: '1px solid rgba(124,58,237,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 15, flexShrink: 0,
+        }}>
+          {comment.photo
+            ? <img src={comment.photo} style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+            : (comment.emoji || '👤')}
         </div>
-      ))}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: 'rgba(167,139,250,1)', fontSize: 11, fontWeight: 700, marginBottom: 2 }}>{comment.display_name}</div>
+          <div style={{ color: 'white', fontSize: 13, lineHeight: 1.3, wordBreak: 'break-word' }}>{comment.text}</div>
+        </div>
+      </div>
+
+      {/* Elongated tail: base spans bubble bottom, tip at comment icon */}
+      <svg
+        width={Math.max(tipX + 10, bubbleW)}
+        height={tailH}
+        style={{ display: 'block', overflow: 'visible', marginTop: '-1px' }}
+      >
+        {/* Filigran tail: small base at bottom-right of bubble, tip at comment icon */}
+        <polygon
+          points={`${bubbleW - 22},0 ${bubbleW},0 ${tipX},${tailH}`}
+          fill="rgba(15,8,30,0.96)"
+          stroke="rgba(124,58,237,0.75)"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+      </svg>
     </div>
   );
 }
 
 // ─── Video Item ───────────────────────────────────────────────────────────────
 
-function VideoItem({ video, isActive, onSwipeUp, onSwipeDown }) {
+function VideoItem({ video, isActive, onSwipeUp, onSwipeDown, muted, onToggleMute }) {
   const videoRef = useRef(null);
   const touchStartRef = useRef(null);
 
@@ -151,6 +184,10 @@ function VideoItem({ video, isActive, onSwipeUp, onSwipeDown }) {
     if (isActive) videoRef.current.play().catch(() => {});
     else { videoRef.current.pause(); videoRef.current.currentTime = 0; }
   }, [isActive]);
+
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = muted;
+  }, [muted]);
 
   function handleTouchStart(e) {
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -172,8 +209,16 @@ function VideoItem({ video, isActive, onSwipeUp, onSwipeDown }) {
         className="w-full h-full object-cover"
         loop={false}
         playsInline
+        muted
         onEnded={onSwipeUp}
       />
+      {/* Mute toggle */}
+      <button
+        onClick={onToggleMute}
+        className="absolute top-20 right-4 w-9 h-9 bg-black/40 backdrop-blur rounded-full flex items-center justify-center z-20"
+      >
+        {muted ? <VolumeX size={18} className="text-white" /> : <Volume2 size={18} className="text-white" />}
+      </button>
       {/* Bottom info overlay */}
       <div className="absolute bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-black/70 to-transparent pointer-events-none">
         <div className="flex items-center gap-2 mb-1">
@@ -200,6 +245,7 @@ export default function LifeFeedScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
+  const [muted, setMuted] = useState(true);
   const [caption, setCaption] = useState('');
   const [showComments, setShowComments] = useState(false);
   const fileInputRef = useRef(null);
@@ -211,10 +257,11 @@ export default function LifeFeedScreen() {
   const [likeCount, setLikeCount] = useState(0);
   const [commentCount, setCommentCount] = useState(0);
   const [liveComment, setLiveComment] = useState(null);
+  const commentBtnRef = useRef(null);
 
-  // Floating comment overlay state
+  // Comment bubble state
   const [historicalComments, setHistoricalComments] = useState([]);
-  const [visibleComments, setVisibleComments] = useState([]);
+  const [bubbleComment, setBubbleComment] = useState(null);
   const replayTimerRef = useRef(null);
   const tickCountRef = useRef(0);
 
@@ -230,7 +277,7 @@ export default function LifeFeedScreen() {
     setShowComments(false);
     setLiveComment(null);
     setHistoricalComments([]);
-    setVisibleComments([]);
+    setBubbleComment(null);
 
     api.get(`/feed/${currentVideo.id}/comments`)
       .then(r => { if (r.data.length > 0) setHistoricalComments(r.data); })
@@ -242,21 +289,17 @@ export default function LifeFeedScreen() {
     if (historicalComments.length === 0) return;
     if (replayTimerRef.current) clearInterval(replayTimerRef.current);
     tickCountRef.current = 0;
-    setVisibleComments([]);
+    setBubbleComment(null);
 
     function tick() {
       const idx = tickCountRef.current % historicalComments.length;
       tickCountRef.current += 1;
       const comment = historicalComments[idx];
-      const key = `${comment.id}_${tickCountRef.current}`;
-      setVisibleComments(prev => [...prev.slice(-4), { ...comment, key }]);
-      setTimeout(() => {
-        setVisibleComments(prev => prev.filter(c => c.key !== key));
-      }, 5000);
+      setBubbleComment({ ...comment, key: `${comment.id}_${tickCountRef.current}` });
     }
 
-    tick(); // show first comment immediately
-    replayTimerRef.current = setInterval(tick, 2500);
+    tick();
+    replayTimerRef.current = setInterval(tick, 3500);
 
     return () => {
       if (replayTimerRef.current) clearInterval(replayTimerRef.current);
@@ -276,9 +319,7 @@ export default function LifeFeedScreen() {
     function onNewComment({ videoId, comment }) {
       if (videoId !== currentVideo.id) return;
       setLiveComment(comment);
-      const key = `live_${comment.id}_${Date.now()}`;
-      setVisibleComments(prev => [...prev.slice(-4), { ...comment, key }]);
-      setTimeout(() => setVisibleComments(prev => prev.filter(c => c.key !== key)), 5000);
+      setBubbleComment({ ...comment, key: `live_${comment.id}_${Date.now()}` });
     }
 
     socket.on('new_comment', onNewComment);
@@ -355,9 +396,9 @@ export default function LifeFeedScreen() {
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       <style>{`
-        @keyframes floatCommentIn {
-          from { opacity: 0; transform: translateX(-12px); }
-          to   { opacity: 1; transform: translateX(0); }
+        @keyframes bubbleIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
@@ -399,6 +440,8 @@ export default function LifeFeedScreen() {
             isActive={true}
             onSwipeUp={goNext}
             onSwipeDown={goPrev}
+            muted={muted}
+            onToggleMute={() => setMuted(m => !m)}
           />
         )}
 
@@ -412,8 +455,8 @@ export default function LifeFeedScreen() {
         )}
       </div>
 
-      {/* Floating comment overlay — fixed, außerhalb aller Container */}
-      {!showComments && <FloatingCommentOverlay comments={visibleComments} />}
+      {/* Sprechblase über dem Kommentar-Button */}
+      {!showComments && <CommentBubble comment={bubbleComment} commentBtnRef={commentBtnRef} />}
 
       {/* Kommentar-Panel — außerhalb VideoItem um overflow-hidden zu umgehen */}
       {showComments && currentVideo && (
@@ -481,6 +524,7 @@ export default function LifeFeedScreen() {
 
             {/* Kommentare */}
             <button
+              ref={commentBtnRef}
               onClick={() => setShowComments(s => !s)}
               style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: showComments ? 'white' : 'rgba(255,255,255,0.75)' }}
             >

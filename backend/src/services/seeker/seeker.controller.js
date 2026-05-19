@@ -8,6 +8,7 @@ async function createSearch(req, res) {
       locationText, locationLat, locationLng,
       seatsNeeded, date, timeFrom, timeUntil,
       preferredGenders, preferredAgeMin, preferredAgeMax,
+      category,
     } = req.body;
 
     if (!locationText && (locationLat == null || locationLng == null)) {
@@ -29,14 +30,15 @@ async function createSearch(req, res) {
       INSERT INTO seeker_searches
         (id, user_id, location_text, location_lat, location_lng,
          seats_needed, date, time_from, time_until,
-         preferred_genders, preferred_age_min, preferred_age_max)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         preferred_genders, preferred_age_min, preferred_age_max, category)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       searchId, req.user.id,
       locationText || null, finalLat, finalLng,
       seatsNeeded || 1, date, timeFrom, timeUntil,
       JSON.stringify(preferredGenders || ['m', 'f', 'd']),
-      preferredAgeMin || 18, preferredAgeMax || 99
+      preferredAgeMin || 18, preferredAgeMax || 99,
+      category || 'alle'
     );
 
     res.status(201).json({ id: searchId, message: 'Suchanfrage erstellt', lat: finalLat, lng: finalLng });

@@ -1,7 +1,7 @@
 {
-  "name": "servus-wiesn-frontend",
+  "name": "saihello-frontend",
   "version": "1.0.0",
-  "description": "Servus Wiesn — Oktoberfest Tisch-Matching Frontend",
+  "description": "SaiHello — Event-Matching Frontend",
   "type": "module",
   "scripts": {
     "dev": "vite",

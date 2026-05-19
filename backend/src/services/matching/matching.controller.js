@@ -238,7 +238,7 @@ function acceptInvite(req, res) {
       const offer = db.prepare('SELECT id, available_seats FROM table_offers WHERE id = ?').get(match.offer_id);
       const newSeats = Math.max(0, (offer.available_seats || 0) - match.seats_granted);
       if (newSeats <= 0) {
-        db.prepare("UPDATE table_offers SET available_seats = 0, status = 'full' WHERE id = ?").run(offer.id);
+        db.prepare("UPDATE table_offers SET status = 'full' WHERE id = ?").run(offer.id);
       } else {
         db.prepare("UPDATE table_offers SET available_seats = ? WHERE id = ?").run(newSeats, offer.id);
       }

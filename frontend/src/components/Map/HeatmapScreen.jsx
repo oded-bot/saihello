@@ -1,42 +1,53 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, useMap, ZoomControl, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents, ZoomControl, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import { ChevronLeft, X } from 'lucide-react';
 import api from '../../utils/api';
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
 
 function PinTeaserModal({ onClose, navigate }) {
   return (
     <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div
-        className="bg-dark-card rounded-t-3xl w-full max-w-md p-6 shadow-2xl border-t border-dark-separator"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}
+        className="w-full max-w-md rounded-t-3xl p-6 shadow-2xl"
+        style={{ background: 'rgba(18,10,35,0.98)', border: '1px solid rgba(124,58,237,0.3)', paddingBottom: 'calc(env(safe-area-inset-bottom, 34px) + 50px)' }}
         onClick={e => e.stopPropagation()}
       >
+        <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5" />
         <div className="flex items-start justify-between mb-4">
           <div>
             <p className="text-3xl mb-2">👀</p>
             <h2 className="text-xl font-bold text-white">Wer steckt dahinter?</h2>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-dark-elevated flex items-center justify-center mt-1">
+          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.07)' }}>
             <X size={16} className="text-white/50" />
           </button>
         </div>
 
         <p className="text-white/60 text-sm leading-relaxed mb-6">
-          Diese Pins zeigen, dass in deiner Nähe gerade etwas los ist. Sobald du ein Angebot einstellst oder eine Suche startest, werden dir echte Profile sichtbar — und du kannst direkt matchen.
+          Diese Pins zeigen gerade andere User in deiner Nähe. Sobald du ein Angebot aufgibst oder eine Suche startest, werden die Profile sichtbar - und du kannst direkt matchen. Let's go!
         </p>
 
         <div className="flex gap-3">
           <button
             onClick={() => { onClose(); navigate('/offer'); }}
-            className="flex-1 py-3.5 tinder-gradient text-white font-bold rounded-2xl text-sm active:scale-95 transition gradient-glow"
+            className="flex-1 py-3.5 text-white font-bold rounded-2xl text-sm"
+            style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
           >
             Einladung erstellen
           </button>
           <button
             onClick={() => { onClose(); navigate('/discover'); }}
-            className="flex-1 py-3.5 glass text-white font-semibold rounded-2xl text-sm active:scale-95 transition border border-white/10"
+            className="flex-1 py-3.5 text-white font-semibold rounded-2xl text-sm"
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)' }}
           >
             Suche starten
           </button>
@@ -54,13 +65,13 @@ L.Icon.Default.mergeOptions({
 });
 
 const offerIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
 });
 
 const seekerIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
 });
@@ -72,10 +83,8 @@ function heatColor(intensity) {
   return '#22c55e';
 }
 
-// Each heat point rendered as 3 concentric circles — radius scales with intensity
 function HeatBlob({ lat, lng, intensity }) {
   const color = heatColor(intensity);
-  // Higher intensity = larger visible footprint
   const scale = 0.5 + intensity * 0.8;
   const layers = [
     { radius: Math.round(200 * scale), fillOpacity: 0.06 },
@@ -106,6 +115,20 @@ function RecenterMap({ center }) {
   return null;
 }
 
+// Lauscht auf Kartenbewegungen — löst Re-Fetch aus wenn > 15 km vom letzten Fetch-Zentrum
+function MapPanWatcher({ fetchCenterRef, onRefetch }) {
+  useMapEvents({
+    moveend: (e) => {
+      const { lat, lng } = e.target.getCenter();
+      const { lat: fcLat, lng: fcLng } = fetchCenterRef.current;
+      if (haversineKm(fcLat, fcLng, lat, lng) > 15) {
+        onRefetch(lat, lng);
+      }
+    },
+  });
+  return null;
+}
+
 export default function HeatmapScreen() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -116,6 +139,9 @@ export default function HeatmapScreen() {
   const [data, setData] = useState(null);
   const [showTeaser, setShowTeaser] = useState(false);
 
+  // Speichert das Zentrum des letzten API-Abrufs
+  const fetchCenterRef = useRef({ lat: parseFloat(lat) || 48.1374, lng: parseFloat(lng) || 11.5755 });
+
   useEffect(() => {
     async function load() {
       try {
@@ -124,6 +150,7 @@ export default function HeatmapScreen() {
           : `query=${encodeURIComponent(query || '')}`;
         const res = await api.get(`/map/heatmap?${params}`);
         setData(res.data);
+        fetchCenterRef.current = { lat: res.data.centerLat, lng: res.data.centerLng };
       } catch (err) {
         setError(err.response?.data?.error || 'Laden fehlgeschlagen');
       } finally {
@@ -131,6 +158,21 @@ export default function HeatmapScreen() {
       }
     }
     load();
+  }, []);
+
+  // Re-Fetch nur für Pins (heatPoints bleiben erhalten)
+  const handleRefetch = useCallback(async (newLat, newLng) => {
+    try {
+      const res = await api.get(`/map/heatmap?lat=${newLat}&lng=${newLng}`);
+      fetchCenterRef.current = { lat: newLat, lng: newLng };
+      setData(prev => ({
+        ...prev,
+        offerPins: res.data.offerPins,
+        seekerPins: res.data.seekerPins,
+      }));
+    } catch {
+      // Stille — kein Fehler anzeigen bei Hintergrund-Refresh
+    }
   }, []);
 
   const defaultCenter = data
@@ -162,13 +204,15 @@ export default function HeatmapScreen() {
         >
           <ZoomControl position="bottomright" />
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url={`https://api.maptiler.com/maps/streets-v2-dark/{z}/{x}/{y}.png?key=${import.meta.env.VITE_MAPTILER_KEY}`}
+            attribution='&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            tileSize={512}
+            zoomOffset={-1}
           />
           <RecenterMap center={[data.centerLat, data.centerLng]} />
           <HeatLayer points={data.heatPoints} />
+          <MapPanWatcher fetchCenterRef={fetchCenterRef} onRefetch={handleRefetch} />
 
-          {/* Offer pins — clickable, open teaser */}
           {data.offerPins.map(pin => (
             <Marker
               key={`o-${pin.id}`}
@@ -177,7 +221,6 @@ export default function HeatmapScreen() {
               eventHandlers={{ click: () => setShowTeaser(true) }}
             />
           ))}
-          {/* Seeker pins — clickable, open teaser */}
           {data.seekerPins.map(pin => (
             <Marker
               key={`s-${pin.id}`}
@@ -189,21 +232,19 @@ export default function HeatmapScreen() {
         </MapContainer>
       )}
 
-      {/* Top info bar */}
       {data && !loading && !error && (
         <div className="fixed left-0 right-0 px-4 z-[9999]" style={{ top: 0, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
           <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>
             <p className="font-semibold text-white truncate">🔥 {data.locationLabel}</p>
             <div className="flex gap-3 text-xs text-white/50 mt-0.5">
               <span>{data.heatPoints.length} Aktivitätspunkte</span>
-              {data.offerPins.length > 0 && <span>🔵 {data.offerPins.length} Angebote</span>}
-              {data.seekerPins.length > 0 && <span>🔴 {data.seekerPins.length} Suchende</span>}
+              {data.offerPins.length > 0 && <span>⚫ {data.offerPins.length} Angebote</span>}
+              {data.seekerPins.length > 0 && <span>🟣 {data.seekerPins.length} Suchende</span>}
             </div>
           </div>
         </div>
       )}
 
-      {/* Zurück button */}
       <button
         onClick={() => navigate(-1)}
         className="fixed left-4 z-[1001] flex items-center gap-1 bg-white/90 backdrop-blur-sm text-gray-700 rounded-xl px-3 py-2 shadow text-sm font-medium"
@@ -213,7 +254,6 @@ export default function HeatmapScreen() {
         Zurück
       </button>
 
-      {/* Legend */}
       {data && !loading && !error && (
         <div
           className="fixed right-4 z-[1001] bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow text-xs space-y-1"

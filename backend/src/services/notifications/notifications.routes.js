@@ -61,7 +61,7 @@ router.get('/status', (req, res) => {
       unreadMessages: unreadMessages.count,
       newMatches: newMatches.count,
       pendingInvites: pendingInvites.count,
-      totalBadge: unreadMessages.count + pendingInvites.count,
+      totalBadge: unreadMessages.count + newMatches.count + pendingInvites.count,
       latestUnread,
     });
   } catch (err) {

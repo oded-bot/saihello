@@ -453,6 +453,8 @@ function getSeekerFeed(req, res) {
 async function getHeatmap(req, res) {
   try {
     const { lat, lng, query } = req.query;
+    // GPS-Modus: 15 km Radius für Pin-Suche; Frontend löst Re-Fetch aus wenn User weiter scrollt
+    const pinRadius = lat && lng && !query ? 15000 : 500;
     const radius = 500;
 
     let centerLat, centerLng, locationLabel;
@@ -472,7 +474,8 @@ async function getHeatmap(req, res) {
     }
 
     // 1. Find nearby venues via Overpass (free) — large pool for geographic spread
-    const venues = await findNearbyVenues(centerLat, centerLng, radius, 30);
+    let venues = [];
+    try { venues = await findNearbyVenues(centerLat, centerLng, radius, 30); } catch { /* Overpass timeout/unavailable — weiter mit Fake-Daten */ }
 
     // Always include the searched location itself as the first venue
     const searchedVenue = query
@@ -544,8 +547,8 @@ async function getHeatmap(req, res) {
 
     // 3. Also get our app's pins in the area (non-clickable overlay)
     const today = now.toISOString().slice(0, 10);
-    const latDelta = radius / 111000;
-    const lngDelta = radius / (111000 * Math.cos(centerLat * Math.PI / 180));
+    const latDelta = pinRadius / 111000;
+    const lngDelta = pinRadius / (111000 * Math.cos(centerLat * Math.PI / 180));
 
     const offerPins = db.prepare(`
       SELECT o.id, o.location_lat as lat, o.location_lng as lng,
