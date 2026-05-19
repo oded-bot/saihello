@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Zap, Map, MessageCircle, User, Info } from 'lucide-react';
+import { Zap, MessageCircle, User, Info } from 'lucide-react';
 import useNotifications from '../../hooks/useNotifications';
 import useLanguage from '../../hooks/useLanguage';
 import HowItWorksModal from './HowItWorksModal';
@@ -17,7 +17,6 @@ export default function BottomNav() {
 
   const leftTabs = [
     { path: '/home', icon: Zap, label: t('home') },
-    { path: '/map', icon: Map, label: 'Karte' },
   ];
 
   const rightTabs = [

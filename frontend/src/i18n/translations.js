@@ -3,9 +3,9 @@ export const translations = {
     // Home
     greeting: 'Hey',
     findPlace: 'Ich komme dazu!',
-    findPlaceDesc: 'Swipe durch Angebote in deiner Nähe',
+    findPlaceDesc: 'Stöbere durch Angebote — oder such direkt auf der Karte',
     offerPlace: 'Ich lade ein!',
-    offerPlaceDesc: 'Lade andere zu dir ein',
+    offerPlaceDesc: 'Mach dein Platzangebot sichtbar — oder sieh in der Karte nach, wer in deiner Nähe einen Platz sucht',
     activeOffers: 'Aktive Angebote',
     yourMatches: 'Deine Matches',
     findPlaceOnWiesn: 'Entdecke, was in deiner Stadt los ist',
@@ -311,9 +311,9 @@ export const translations = {
   en: {
     greeting: 'Hey',
     findPlace: 'Count me in!',
-    findPlaceDesc: 'Swipe through offers near you',
+    findPlaceDesc: 'Browse offers — or search directly on the map',
     offerPlace: 'Join me!',
-    offerPlaceDesc: 'Invite others to join you',
+    offerPlaceDesc: 'Make your offer visible — see who\'s looking for a spot nearby',
     activeOffers: 'Active Offers',
     yourMatches: 'Your Matches',
     findPlaceOnWiesn: 'Discover what\'s happening in your city',

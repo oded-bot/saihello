@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Search, PlusCircle, Star, TrendingUp, X, Navigation } from 'lucide-react';
+import { Zap, Search, PlusCircle, Star, TrendingUp, X, Navigation, Map } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import HostProfileModal from '../Leaderboard/HostProfileModal';
 import useLanguage from '../../hooks/useLanguage';
@@ -240,29 +240,43 @@ export default function HomeScreen() {
             {/* Platz anbieten */}
             <button
               onClick={() => navigate('/offer')}
-              className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition"
+              className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition h-[100px]"
               style={{ background: 'linear-gradient(135deg, #6B7280 0%, #D1D5DB 50%, #9CA3AF 100%)' }}
             >
               <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
                 <PlusCircle size={22} className="text-white" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <h3 className="text-base font-bold text-white">{t('offerPlace')}</h3>
-                <p className="text-white/60 text-xs">{t('offerPlaceDesc')}</p>
+                <p className="text-white/60 text-xs line-clamp-2">{t('offerPlaceDesc')}</p>
+              </div>
+              <div
+                onClick={(e) => { e.stopPropagation(); navigate('/map'); }}
+                className="shrink-0 flex flex-col items-center gap-1 bg-black/20 hover:bg-black/30 rounded-xl px-3 py-2 transition"
+              >
+                <Map size={16} className="text-white/80" />
+                <span className="text-[10px] text-white/70 font-medium">Karte</span>
               </div>
             </button>
 
             {/* Platz finden */}
             <button
               onClick={() => navigate('/discover')}
-              className="w-full tinder-gradient rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform gradient-glow"
+              className="w-full tinder-gradient rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform gradient-glow h-[100px]"
             >
               <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
                 <Search size={22} className="text-white" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <h3 className="text-base font-bold text-white">{t('findPlace')}</h3>
-                <p className="text-white/60 text-xs">{t('findPlaceDesc')}</p>
+                <p className="text-white/60 text-xs line-clamp-2">{t('findPlaceDesc')}</p>
+              </div>
+              <div
+                onClick={(e) => { e.stopPropagation(); navigate('/map'); }}
+                className="shrink-0 flex flex-col items-center gap-1 bg-black/20 hover:bg-black/30 rounded-xl px-3 py-2 transition"
+              >
+                <Map size={16} className="text-white/80" />
+                <span className="text-[10px] text-white/70 font-medium">Karte</span>
               </div>
             </button>
 
