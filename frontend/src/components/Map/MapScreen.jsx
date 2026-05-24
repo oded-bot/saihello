@@ -181,6 +181,14 @@ export default function MapScreen() {
         setMyItem(activeSearch);
         const pinsRes = await api.get('/map/offer-pins');
         setPins(pinsRes.data);
+      } else if (navState?.mode === 'offer') {
+        setMyStatus('pending-offer');
+        setMyItem(null);
+        setPins([]);
+      } else if (navState?.mode === 'seek') {
+        setMyStatus('pending-seek');
+        setMyItem(null);
+        setPins([]);
       } else {
         setMyStatus(null);
         setMyItem(null);
@@ -468,17 +476,25 @@ export default function MapScreen() {
         )}
         {loading ? (
           <div className="rounded-2xl px-4 py-3 text-sm text-white/50 text-center" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>Laden...</div>
-        ) : myStatus ? (
+        ) : (myStatus === 'search' || myStatus === 'offer') ? (
           <div className="rounded-2xl px-4 py-3 overflow-hidden" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-white/50 font-medium">
                   {myStatus === 'offer' ? 'Dein aktives Angebot' : 'Deine aktive Suche'}
                 </p>
-                <p className="text-sm font-semibold text-white truncate">
-                  {myItem?.location_text || `${myItem?.location_lat?.toFixed(4)}, ${myItem?.location_lng?.toFixed(4)}`}
-                </p>
-                <p className="text-xs text-white/50">{myItem?.date} · {myItem?.time_from}–{myItem?.time_until}</p>
+                {myItem ? (
+                  <>
+                    <p className="text-sm font-semibold text-white">
+                      {myItem.location_text || (myItem.location_lat ? `${myItem.location_lat.toFixed(4)}, ${myItem.location_lng.toFixed(4)}` : '—')}
+                    </p>
+                    <p className="text-xs text-white/50">
+                      {[myItem.date, myItem.time_from && myItem.time_until ? `${myItem.time_from}–${myItem.time_until}` : null, myStatus === 'search' && myItem.seats_needed ? `${myItem.seats_needed} Platz/Plätze` : myStatus === 'offer' && myItem.available_seats ? `${myItem.available_seats} Plätze` : null].filter(Boolean).join(' · ')}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-white/40">{myStatus === 'search' ? 'Keine Suche aktiv.' : 'Kein Angebot aktiv.'}</p>
+                )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <div className="text-right w-16">
@@ -524,20 +540,51 @@ export default function MapScreen() {
               </div>
             )}
           </div>
+        ) : myStatus === 'pending-seek' ? (
+          <div className="rounded-2xl px-4 py-3" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>
+            <p className="text-xs text-white/50 font-medium">Deine aktive Suche</p>
+            <p className="text-sm text-white/40">Keine Suche aktiv.</p>
+          </div>
+        ) : myStatus === 'pending-offer' ? (
+          <div className="rounded-2xl px-4 py-3" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>
+            <p className="text-xs text-white/50 font-medium">Dein aktives Angebot</p>
+            <p className="text-sm text-white/40">Kein Angebot aktiv.</p>
+          </div>
         ) : (
           <div className="rounded-2xl px-4 py-3 text-center" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>
-            <p className="text-sm text-white/60 mb-3">Was möchtest du tun?</p>
-            <div className="flex gap-2">
-              <button onClick={() => navigate('/offer')}
-                className="flex-1 tinder-gradient text-white py-2.5 rounded-xl text-sm font-bold">
-                Ich lade ein!
-              </button>
-              <button onClick={() => navigate('/discover')}
-                className="flex-1 text-white py-2.5 rounded-xl text-sm font-bold"
-                style={{ border: '1.5px solid rgba(124,58,237,0.65)', background: 'rgba(124,58,237,0.15)' }}>
-                Ich komme dazu!
-              </button>
-            </div>
+            {myStatus === 'pending-offer' ? (
+              <>
+                <p className="text-sm text-white/60 mb-3">Du hast noch kein aktives Angebot.</p>
+                <button onClick={() => navigate('/offer', { state: { returnToMap: true } })}
+                  className="w-full tinder-gradient text-white py-2.5 rounded-xl text-sm font-bold">
+                  Jetzt Platz anbieten
+                </button>
+              </>
+            ) : myStatus === 'pending-seek' ? (
+              <>
+                <p className="text-sm text-white/60 mb-3">Du hast noch keine aktive Suche.</p>
+                <button onClick={() => navigate('/discover')}
+                  className="w-full text-white py-2.5 rounded-xl text-sm font-bold"
+                  style={{ border: '1.5px solid rgba(124,58,237,0.65)', background: 'rgba(124,58,237,0.15)' }}>
+                  Jetzt Platz suchen
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-white/60 mb-3">Was möchtest du tun?</p>
+                <div className="flex gap-2">
+                  <button onClick={() => navigate('/offer', { state: { returnToMap: true } })}
+                    className="flex-1 tinder-gradient text-white py-2.5 rounded-xl text-sm font-bold">
+                    Ich lade ein!
+                  </button>
+                  <button onClick={() => navigate('/discover')}
+                    className="flex-1 text-white py-2.5 rounded-xl text-sm font-bold"
+                    style={{ border: '1.5px solid rgba(124,58,237,0.65)', background: 'rgba(124,58,237,0.15)' }}>
+                    Ich komme dazu!
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

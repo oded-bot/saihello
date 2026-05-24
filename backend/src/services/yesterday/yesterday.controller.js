@@ -1,9 +1,15 @@
 const { v4: uuid } = require('uuid');
+const path = require('path');
+const sharp = require('sharp');
+const fs = require('fs');
 const db = require('../../config/database');
+const { sendPushToUser } = require('../../utils/sendPush');
 
-const RADIUS_M = 100;
-const RADIUS_DEG_LAT = 0.0009;
-const RADIUS_DEG_LNG = 0.00125;
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '../../../uploads');
+
+const RADIUS_M = 300;
+const RADIUS_DEG_LAT = 0.0027;
+const RADIUS_DEG_LNG = 0.00375;
 
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -132,6 +138,22 @@ function getFeed(req, res) {
           AND yp.created_at >= datetime('now', '-7 days')
       `).all(userId, lat - RADIUS_DEG_LAT, lat + RADIUS_DEG_LAT, lng - RADIUS_DEG_LNG, lng + RADIUS_DEG_LNG);
 
+      // Location-Label aus eigener Aktivität an diesem Pin
+      const ownActivity = db.prepare(`
+        SELECT location_text FROM table_offers
+        WHERE user_id = ? AND location_lat BETWEEN ? AND ? AND location_lng BETWEEN ? AND ?
+          AND date >= date('now', '-7 days') AND location_text IS NOT NULL
+        UNION
+        SELECT location_text FROM seeker_searches
+        WHERE user_id = ? AND location_lat BETWEEN ? AND ? AND location_lng BETWEEN ? AND ?
+          AND date >= date('now', '-7 days') AND location_text IS NOT NULL
+        LIMIT 1
+      `).get(
+        userId, lat - RADIUS_DEG_LAT, lat + RADIUS_DEG_LAT, lng - RADIUS_DEG_LNG, lng + RADIUS_DEG_LNG,
+        userId, lat - RADIUS_DEG_LAT, lat + RADIUS_DEG_LAT, lng - RADIUS_DEG_LNG, lng + RADIUS_DEG_LNG,
+      );
+      const sharedLocation = ownActivity?.location_text || null;
+
       for (const pin of nearbyPins) {
         if (haversine(lat, lng, pin.lat, pin.lng) > RADIUS_M) continue;
         if (feedMap.has(pin.user_id)) continue;
@@ -151,6 +173,7 @@ function getFeed(req, res) {
           age: pin.age,
           gender: pin.gender,
           bio: pin.bio,
+          sharedLocation,
         });
       }
     }
@@ -184,18 +207,40 @@ function likeUser(req, res) {
     ).get(subjectId, actorId);
 
     let mutualMatch = false;
+    let chatId = null;
     if (theyLikedMe) {
       const [u1, u2] = [actorId, subjectId].sort();
       const existingRequest = db.prepare(
-        'SELECT id FROM yesterday_requests WHERE user1_id = ? AND user2_id = ?'
+        'SELECT id, chat_id FROM yesterday_requests WHERE user1_id = ? AND user2_id = ?'
       ).get(u1, u2);
       if (!existingRequest) {
-        db.prepare('INSERT INTO yesterday_requests (id, user1_id, user2_id) VALUES (?, ?, ?)').run(uuid(), u1, u2);
         mutualMatch = true;
+
+        // Chat sofort erstellen
+        chatId = uuid();
+        db.prepare('INSERT INTO yesterday_chats (id, user1_id, user2_id) VALUES (?, ?, ?)').run(chatId, u1, u2);
+        db.prepare(`INSERT INTO yesterday_requests (id, user1_id, user2_id, status, chat_id, user1_accepted, user2_accepted)
+                    VALUES (?, ?, ?, 'accepted', ?, 1, 1)`).run(uuid(), u1, u2, chatId);
+
+        // Namen für Push
+        const actorName = db.prepare('SELECT display_name FROM profiles WHERE user_id = ?').get(actorId)?.display_name || 'Jemand';
+        const subjectName = db.prepare('SELECT display_name FROM profiles WHERE user_id = ?').get(subjectId)?.display_name || 'Jemand';
+
+        sendPushToUser(subjectId, {
+          title: 'About yesterday… 👋',
+          body: `${actorName} möchte mit dir in Kontakt treten!`,
+          url: '/yesterday',
+        }).catch(err => console.error('Push-Fehler:', err));
+
+        sendPushToUser(actorId, {
+          title: 'About yesterday… 🎉',
+          body: `${subjectName} und du habt euch gegenseitig geliked!`,
+          url: '/yesterday',
+        }).catch(err => console.error('Push-Fehler:', err));
       }
     }
 
-    res.json({ success: true, mutualMatch });
+    res.json({ success: true, mutualMatch, chatId });
   } catch (err) {
     console.error('likeUser Fehler:', err);
     res.status(500).json({ error: 'Like fehlgeschlagen' });
@@ -377,8 +422,148 @@ function sendChatMessage(req, res) {
   }
 }
 
+// POST /photos  — Foto hochladen (multer-verarbeitet, req.file vorhanden)
+async function uploadPhoto(req, res) {
+  try {
+    const userId = req.user.id;
+    if (!req.file) return res.status(400).json({ error: 'Kein Bild hochgeladen' });
+
+    // User muss mindestens einen Pin gesetzt haben
+    const myPin = db.prepare(
+      "SELECT lat, lng FROM yesterday_pins WHERE user_id = ? AND created_at >= datetime('now', '-7 days') LIMIT 1"
+    ).get(userId);
+    if (!myPin) return res.status(403).json({ error: 'Kein aktiver Pin vorhanden' });
+
+    const filename = `yday_${uuid()}.webp`;
+    const filepath = path.join(UPLOAD_DIR, filename);
+
+    await sharp(req.file.buffer)
+      .rotate()
+      .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toFile(filepath);
+
+    db.prepare('INSERT INTO yesterday_photos (id, user_id, lat, lng, file_path) VALUES (?, ?, ?, ?, ?)')
+      .run(uuid(), userId, myPin.lat, myPin.lng, `/uploads/${filename}`);
+
+    res.status(201).json({ success: true, url: `/uploads/${filename}` });
+  } catch (err) {
+    console.error('uploadPhoto Fehler:', err);
+    res.status(500).json({ error: 'Upload fehlgeschlagen' });
+  }
+}
+
+// GET /photos  — Fotos aller User mit Pin im selben Bereich, letzte 7 Tage
+function getPhotos(req, res) {
+  try {
+    const userId = req.user.id;
+
+    const myPins = db.prepare(
+      "SELECT lat, lng FROM yesterday_pins WHERE user_id = ? AND created_at >= datetime('now', '-7 days')"
+    ).all(userId);
+
+    if (myPins.length === 0) return res.json([]);
+
+    const seen = new Set();
+    const photos = [];
+
+    for (const pin of myPins) {
+      const { lat, lng } = pin;
+      const rows = db.prepare(`
+        SELECT yp.id, yp.user_id, yp.file_path, yp.lat, yp.lng, yp.created_at,
+               p.display_name, p.photo_1 as avatar, p.emoji,
+               (SELECT COUNT(*) FROM yesterday_photo_likes l WHERE l.photo_id = yp.id) as like_count,
+               (SELECT COUNT(*) FROM yesterday_photo_comments c WHERE c.photo_id = yp.id) as comment_count,
+               (SELECT COUNT(*) FROM yesterday_photo_likes l WHERE l.photo_id = yp.id AND l.user_id = ?) as my_like
+        FROM yesterday_photos yp
+        JOIN profiles p ON p.user_id = yp.user_id
+        WHERE yp.created_at >= datetime('now', '-7 days')
+          AND yp.lat BETWEEN ? AND ?
+          AND yp.lng BETWEEN ? AND ?
+        ORDER BY yp.created_at DESC
+      `).all(userId, lat - RADIUS_DEG_LAT, lat + RADIUS_DEG_LAT, lng - RADIUS_DEG_LNG, lng + RADIUS_DEG_LNG);
+
+      for (const row of rows) {
+        if (seen.has(row.id)) continue;
+        if (haversine(lat, lng, row.lat, row.lng) > RADIUS_M) continue;
+        seen.add(row.id);
+        photos.push(row);
+      }
+    }
+
+    // Neueste zuerst
+    photos.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json(photos);
+  } catch (err) {
+    console.error('getPhotos Fehler:', err);
+    res.status(500).json({ error: 'Fotos laden fehlgeschlagen' });
+  }
+}
+
+// POST /photos/:id/like — Like togglen
+function togglePhotoLike(req, res) {
+  try {
+    const userId = req.user.id;
+    const { id: photoId } = req.params;
+    const existing = db.prepare('SELECT id FROM yesterday_photo_likes WHERE user_id = ? AND photo_id = ?').get(userId, photoId);
+    if (existing) {
+      db.prepare('DELETE FROM yesterday_photo_likes WHERE user_id = ? AND photo_id = ?').run(userId, photoId);
+    } else {
+      db.prepare('INSERT INTO yesterday_photo_likes (id, user_id, photo_id) VALUES (?, ?, ?)').run(uuid(), userId, photoId);
+    }
+    const count = db.prepare('SELECT COUNT(*) as c FROM yesterday_photo_likes WHERE photo_id = ?').get(photoId).c;
+    res.json({ liked: !existing, count });
+  } catch (err) {
+    console.error('togglePhotoLike Fehler:', err);
+    res.status(500).json({ error: 'Like fehlgeschlagen' });
+  }
+}
+
+// GET /photos/:id/comments
+function getPhotoComments(req, res) {
+  try {
+    const { id: photoId } = req.params;
+    const comments = db.prepare(`
+      SELECT c.id, c.text, c.created_at,
+             p.display_name, p.photo_1 as photo, p.emoji
+      FROM yesterday_photo_comments c
+      JOIN profiles p ON p.user_id = c.user_id
+      WHERE c.photo_id = ?
+      ORDER BY c.created_at ASC
+    `).all(photoId);
+    res.json(comments);
+  } catch (err) {
+    console.error('getPhotoComments Fehler:', err);
+    res.status(500).json({ error: 'Kommentare laden fehlgeschlagen' });
+  }
+}
+
+// POST /photos/:id/comments
+function addPhotoComment(req, res) {
+  try {
+    const userId = req.user.id;
+    const { id: photoId } = req.params;
+    const { text } = req.body;
+    if (!text?.trim()) return res.status(400).json({ error: 'Kommentar darf nicht leer sein' });
+
+    const id = uuid();
+    db.prepare('INSERT INTO yesterday_photo_comments (id, user_id, photo_id, text) VALUES (?, ?, ?, ?)').run(id, userId, photoId, text.trim());
+
+    const comment = db.prepare(`
+      SELECT c.id, c.text, c.created_at, p.display_name, p.photo_1 as photo, p.emoji
+      FROM yesterday_photo_comments c JOIN profiles p ON p.user_id = c.user_id
+      WHERE c.id = ?
+    `).get(id);
+    res.status(201).json(comment);
+  } catch (err) {
+    console.error('addPhotoComment Fehler:', err);
+    res.status(500).json({ error: 'Kommentar fehlgeschlagen' });
+  }
+}
+
 module.exports = {
   getLocations, setPin, getFeed, likeUser, passUser,
   getRequests, acceptRequest, rejectRequest,
   getChatMessages, sendChatMessage,
+  uploadPhoto, getPhotos, togglePhotoLike, getPhotoComments, addPhotoComment,
 };

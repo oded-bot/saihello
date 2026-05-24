@@ -74,16 +74,9 @@ export default function BottomNav() {
                   padding: 0,
                 }}
               >
-                {active ? (
-                  <div style={{ width: 36, height: 36, borderRadius: 12, background: GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon size={18} strokeWidth={2.5} fill={path === '/home' ? 'white' : 'none'} color="white" />
-                  </div>
-                ) : (
-                  <>
-                    <Icon size={22} strokeWidth={1.5} />
-                    <span style={{ fontSize: 10, marginTop: 2, fontWeight: 500 }}>{label}</span>
-                  </>
-                )}
+                <div style={{ width: 36, height: 36, borderRadius: 12, background: GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon size={18} strokeWidth={2.5} fill="white" color="white" />
+                </div>
               </button>
             );
           })}

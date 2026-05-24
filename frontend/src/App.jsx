@@ -20,6 +20,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import useAuthStore from './context/authStore';
 import useDarkMode from './hooks/useDarkMode';
 import { connectSocket } from './utils/socket';
+import { registerServiceWorker } from './utils/pushNotifications';
 import { FEATURES } from './config/features';
 
 // Auth
@@ -106,7 +107,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (token) connectSocket();
+    if (token) {
+      connectSocket();
+      registerServiceWorker();
+    }
   }, [token]);
 
   const { pathname } = useLocation();

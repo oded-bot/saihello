@@ -114,4 +114,46 @@ router.patch('/settings', [
   }
 });
 
+// GET /notifications/vapid-public-key — public key für Frontend
+router.get('/vapid-public-key', (req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
+});
+
+// POST /notifications/push-subscription — speichert Browser-Subscription
+router.post('/push-subscription', (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { endpoint, keys } = req.body;
+    if (!endpoint || !keys?.p256dh || !keys?.auth) {
+      return res.status(400).json({ error: 'Ungültige Subscription' });
+    }
+    // Bestehenden Eintrag für diesen Endpoint aktualisieren oder neu anlegen
+    const existing = db.prepare('SELECT id FROM push_subscriptions WHERE endpoint = ?').get(endpoint);
+    if (existing) {
+      db.prepare('UPDATE push_subscriptions SET user_id = ?, p256dh = ?, auth = ? WHERE id = ?')
+        .run(userId, keys.p256dh, keys.auth, existing.id);
+    } else {
+      db.prepare('INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?, ?)')
+        .run(uuid(), userId, endpoint, keys.p256dh, keys.auth);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('push-subscription Fehler:', err);
+    res.status(500).json({ error: 'Subscription speichern fehlgeschlagen' });
+  }
+});
+
+// DELETE /notifications/push-subscription — löscht Subscription (Logout)
+router.delete('/push-subscription', (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (endpoint) {
+      db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?').run(endpoint, req.user.id);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Löschen fehlgeschlagen' });
+  }
+});
+
 module.exports = router;

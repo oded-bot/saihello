@@ -38,7 +38,7 @@ function PinTeaserModal({ onClose, navigate }) {
 
         <div className="flex gap-3">
           <button
-            onClick={() => { onClose(); navigate('/offer'); }}
+            onClick={() => { onClose(); navigate('/offer', { state: { returnToMap: true } }); }}
             className="flex-1 py-3.5 text-white font-bold rounded-2xl text-sm"
             style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
           >
@@ -52,6 +52,62 @@ function PinTeaserModal({ onClose, navigate }) {
             Suche starten
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PinProfileModal({ pin, onClose, navigate }) {
+  const genderLabel = { m: 'Männlich', f: 'Weiblich', d: 'Divers' };
+  const p = pin.profile;
+  const isOffer = pin.type === 'offer';
+
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-t-3xl p-6 shadow-2xl"
+        style={{ background: 'rgba(18,10,35,0.98)', border: '1px solid rgba(124,58,237,0.3)', paddingBottom: 'calc(env(safe-area-inset-bottom, 34px) + 50px)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5" />
+
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center gap-4">
+            {p.photo ? (
+              <img src={p.photo} className="w-16 h-16 rounded-full object-cover border-2 border-violet-500/40" alt="" />
+            ) : (
+              <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white" style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
+                {p.emoji || p.displayName?.[0]}
+              </div>
+            )}
+            <div>
+              <h3 className="font-bold text-lg text-white">{p.displayName}</h3>
+              <p className="text-sm text-white/50">{p.age} · {genderLabel[p.gender] || p.gender}</p>
+              {p.isVerified && <span className="text-xs text-violet-400 font-medium">✓ Verifiziert</span>}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/40 text-2xl leading-none">×</button>
+        </div>
+
+        <div className="text-sm text-white/60 space-y-1.5 mb-4 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <p><span className="text-white/80 font-medium">{isOffer ? 'Ort:' : 'Sucht bei:'}</span> {pin.locationText}</p>
+          <p><span className="text-white/80 font-medium">Datum:</span> {pin.date}</p>
+          <p><span className="text-white/80 font-medium">Zeit:</span> {pin.timeFrom} – {pin.timeUntil}</p>
+          {isOffer
+            ? <p><span className="text-white/80 font-medium">Verfügbare Plätze:</span> {pin.availableSeats}</p>
+            : <p><span className="text-white/80 font-medium">Sucht:</span> {pin.seatsNeeded} Platz/Plätze</p>
+          }
+        </div>
+
+        {p.bio && <p className="text-sm text-white/50 rounded-xl p-3 mb-4 italic" style={{ background: 'rgba(255,255,255,0.04)' }}>"{p.bio}"</p>}
+
+        <button
+          onClick={() => { onClose(); navigate('/map', { state: { lat: pin.lat, lng: pin.lng } }); }}
+          className="w-full py-3.5 text-white font-bold rounded-2xl text-sm"
+          style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
+        >
+          Auf der Karte entdecken
+        </button>
       </div>
     </div>
   );
@@ -75,6 +131,36 @@ const seekerIcon = new L.Icon({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
 });
+
+function createPinIcon(type, emoji, photoUrl) {
+  const color = type === 'offer' ? 'grey' : 'violet';
+  const markerImg = `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`;
+
+  if (emoji) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="position:relative;display:inline-block;">
+        <img src="${markerImg}" style="width:25px;height:41px;display:block;" />
+        <span style="position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);font-size:28px;line-height:1;white-space:nowrap;">${emoji}</span>
+      </div>`,
+      iconSize: [25, 60], iconAnchor: [12, 41], popupAnchor: [1, -34],
+    });
+  }
+
+  if (photoUrl) {
+    const fullUrl = photoUrl.startsWith('http') ? photoUrl : `${window.location.origin}${photoUrl}`;
+    return L.divIcon({
+      className: '',
+      html: `<div style="position:relative;display:inline-block;">
+        <img src="${markerImg}" style="width:25px;height:41px;display:block;" />
+        <img src="${fullUrl}" style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);width:26px;height:26px;border-radius:50%;border:2px solid white;object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,0.4);" />
+      </div>`,
+      iconSize: [25, 60], iconAnchor: [12, 41], popupAnchor: [1, -34],
+    });
+  }
+
+  return type === 'offer' ? offerIcon : seekerIcon;
+}
 
 function heatColor(intensity) {
   if (intensity >= 0.75) return '#ef4444';
@@ -138,6 +224,7 @@ export default function HeatmapScreen() {
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [showTeaser, setShowTeaser] = useState(false);
+  const [selectedPin, setSelectedPin] = useState(null);
 
   // Speichert das Zentrum des letzten API-Abrufs
   const fetchCenterRef = useRef({ lat: parseFloat(lat) || 48.1374, lng: parseFloat(lng) || 11.5755 });
@@ -217,16 +304,20 @@ export default function HeatmapScreen() {
             <Marker
               key={`o-${pin.id}`}
               position={[pin.lat, pin.lng]}
-              icon={offerIcon}
-              eventHandlers={{ click: () => setShowTeaser(true) }}
+              icon={data.isActive && pin.profile
+                ? createPinIcon('offer', pin.profile.emoji, pin.profile.photo)
+                : offerIcon}
+              eventHandlers={{ click: () => data.isActive ? setSelectedPin(pin) : setShowTeaser(true) }}
             />
           ))}
           {data.seekerPins.map(pin => (
             <Marker
               key={`s-${pin.id}`}
               position={[pin.lat, pin.lng]}
-              icon={seekerIcon}
-              eventHandlers={{ click: () => setShowTeaser(true) }}
+              icon={data.isActive && pin.profile
+                ? createPinIcon('seeker', pin.profile.emoji, pin.profile.photo)
+                : seekerIcon}
+              eventHandlers={{ click: () => data.isActive ? setSelectedPin(pin) : setShowTeaser(true) }}
             />
           ))}
         </MapContainer>
@@ -268,6 +359,14 @@ export default function HeatmapScreen() {
 
       {showTeaser && (
         <PinTeaserModal onClose={() => setShowTeaser(false)} navigate={navigate} />
+      )}
+
+      {selectedPin && (
+        <PinProfileModal
+          pin={selectedPin}
+          onClose={() => setSelectedPin(null)}
+          navigate={navigate}
+        />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Search, PlusCircle, Star, TrendingUp, X, Navigation, Map } from 'lucide-react';
+import { Search, PlusCircle, Star, TrendingUp, X, Navigation, Map } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import HostProfileModal from '../Leaderboard/HostProfileModal';
 import useLanguage from '../../hooks/useLanguage';
@@ -36,7 +36,7 @@ function HeatLocationModal({ onClose, onConfirm }) {
       const res = await api.get('/tables/geocode-check', { params: { q: query.trim() } });
       const { status, lat, lng, displayName } = res.data;
       if (status === 'ok') {
-        onConfirm({ lat, lng, query: query.trim() });
+        onConfirm({ lat, lng, query: displayName || query.trim() });
       } else if (status === 'needs_confirm') {
         setGeocodeConfirm({ displayName, lat, lng });
       } else {
@@ -143,6 +143,7 @@ export default function HomeScreen() {
   const [showHeatModal, setShowHeatModal] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [selectedHost, setSelectedHost] = useState(null);
+  const [myRank, setMyRank] = useState(null);
 
   useEffect(() => {
     loadStats();
@@ -171,8 +172,12 @@ export default function HomeScreen() {
 
   async function loadLeaderboard() {
     try {
-      const { data } = await api.get('/leaderboard');
-      setLeaderboard(data);
+      const [lbRes, rankRes] = await Promise.all([
+        api.get('/leaderboard'),
+        api.get('/leaderboard/my-rank'),
+      ]);
+      setLeaderboard(lbRes.data);
+      setMyRank(rankRes.data);
     } catch (err) {}
   }
 
@@ -195,9 +200,16 @@ export default function HomeScreen() {
         </div>
         <button
           onClick={() => navigate('/profile')}
-          className="w-12 h-12 tinder-gradient rounded-2xl flex items-center justify-center shadow-lg gradient-glow active:scale-90 transition"
+          className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg active:scale-90 transition"
+          style={{ border: '2px solid rgba(124,58,237,0.6)' }}
         >
-          <Zap size={22} className="text-white" fill="white" />
+          {user?.photo ? (
+            <img src={user.photo} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full tinder-gradient flex items-center justify-center">
+              <span className="text-white font-bold text-lg">{user?.displayName?.charAt(0) || '?'}</span>
+            </div>
+          )}
         </button>
       </div>
 
@@ -237,54 +249,54 @@ export default function HomeScreen() {
 
           <div className="flex-1 flex flex-col gap-3">
 
+            {/* Platz anbieten + Platz finden: gleiche Höhe via Grid */}
+            <div className="grid gap-3" style={{ gridTemplateRows: '1fr 1fr' }}>
+
             {/* Platz anbieten */}
-            <button
+            <div
               onClick={() => navigate('/offer')}
-              className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition h-[100px]"
-              style={{ background: 'linear-gradient(135deg, #6B7280 0%, #D1D5DB 50%, #9CA3AF 100%)' }}
+              className="w-full h-full rounded-2xl p-5 flex items-center gap-4 min-h-[100px] cursor-pointer active:scale-95 transition-transform"
+              style={{ background: 'linear-gradient(135deg, #374151 0%, #9CA3AF 40%, #D1D5DB 52%, #9CA3AF 65%, #374151 100%)' }}
             >
               <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
                 <PlusCircle size={22} className="text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-bold text-white">{t('offerPlace')}</h3>
-                <p className="text-white/60 text-xs line-clamp-2">{t('offerPlaceDesc')}</p>
+                <p className="text-white/60 text-xs">{t('offerPlaceDesc')}</p>
               </div>
-              <div
-                onClick={(e) => { e.stopPropagation(); navigate('/map'); }}
-                className="shrink-0 flex flex-col items-center gap-1 bg-black/20 hover:bg-black/30 rounded-xl px-3 py-2 transition"
-              >
-                <Map size={16} className="text-white/80" />
-                <span className="text-[10px] text-white/70 font-medium">Karte</span>
-              </div>
-            </button>
+            </div>
 
             {/* Platz finden */}
-            <button
-              onClick={() => navigate('/discover')}
-              className="w-full tinder-gradient rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform gradient-glow h-[100px]"
+            <div
+              className="w-full h-full rounded-2xl p-5 flex items-center gap-4 min-h-[100px]"
+              style={{ background: 'linear-gradient(135deg, #4C1D95 0%, #7C3AED 35%, #A78BFA 52%, #EC4899 70%, #831843 100%)' }}
             >
-              <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+              <div
+                onClick={() => navigate('/discover')}
+                className="w-11 h-11 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition"
+              >
                 <Search size={22} className="text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-bold text-white">{t('findPlace')}</h3>
-                <p className="text-white/60 text-xs line-clamp-2">{t('findPlaceDesc')}</p>
+                <p className="text-white/60 text-xs">{t('findPlaceDesc')}</p>
               </div>
               <div
-                onClick={(e) => { e.stopPropagation(); navigate('/map'); }}
-                className="shrink-0 flex flex-col items-center gap-1 bg-black/20 hover:bg-black/30 rounded-xl px-3 py-2 transition"
+                onClick={() => navigate('/map', { state: { mode: 'seek' } })}
+                className="shrink-0 flex flex-col items-center gap-1 bg-black/20 hover:bg-black/30 rounded-xl px-3 py-2 transition cursor-pointer active:scale-90"
               >
                 <Map size={16} className="text-white/80" />
                 <span className="text-[10px] text-white/70 font-medium">Karte</span>
               </div>
-            </button>
+            </div>
+            </div>{/* end equal-height grid */}
 
             {/* Where's the heat */}
             <button
               onClick={() => setShowHeatModal(true)}
               className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform"
-              style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #92400E 0%, #F59E0B 35%, #FCD34D 52%, #EF4444 70%, #7F1D1D 100%)' }}
             >
               <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0 text-xl">
                 🔥
@@ -300,7 +312,7 @@ export default function HomeScreen() {
               <button
                 onClick={() => navigate('/feed')}
                 className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition"
-                style={{ background: 'linear-gradient(135deg, #7F1D1D 0%, #F87171 30%, #B91C1C 50%, #FCA5A5 70%, #7F1D1D 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #7F1D1D 0%, #B91C1C 35%, #F87171 52%, #B91C1C 70%, #7F1D1D 100%)' }}
               >
                 <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
                   <span className="text-xl">🎥</span>
@@ -331,7 +343,7 @@ export default function HomeScreen() {
         <div className="mt-8 mb-6">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xl">🏆</span>
-            <h2 className="text-base font-bold text-white">Top 10 Gastgeber</h2>
+            <h2 className="text-base font-bold text-white">Top {leaderboard.length} Member — meiste Matches</h2>
           </div>
           <div className="glass rounded-2xl overflow-hidden">
             {leaderboard.map((entry, i) => {
@@ -358,8 +370,8 @@ export default function HomeScreen() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="text-right">
-                      <p className="font-bold text-sm text-app-pink">{entry.confirmed_count}</p>
-                      <p className="text-xs text-white/30">Einladungen</p>
+                      <p className="font-bold text-sm text-app-pink">{entry.confirmed_matches}</p>
+                      <p className="text-xs text-white/30">Matches</p>
                     </div>
                     {isPublic && (
                       <span className="bg-tinder-cyan/20 text-tinder-cyan text-xs font-semibold px-2.5 py-1 rounded-lg shrink-0 border border-tinder-cyan/30">

@@ -349,7 +349,7 @@ export default function LifeFeedScreen() {
 
   useEffect(() => { loadFeed(); }, [loadFeed]);
 
-  function goNext() { if (currentIndex < videos.length - 1) setCurrentIndex(i => i + 1); }
+  function goNext() { setCurrentIndex(i => (i + 1) % videos.length); }
   function goPrev() { if (currentIndex > 0) setCurrentIndex(i => i - 1); }
 
   async function handleLike() {
@@ -552,8 +552,7 @@ export default function LifeFeedScreen() {
             {/* Weiter */}
             <button
               onClick={goNext}
-              disabled={currentIndex === videos.length - 1}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'none', border: 'none', cursor: 'pointer', color: currentIndex === videos.length - 1 ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.75)', padding: 0 }}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.75)', padding: 0 }}
             >
               <ChevronUp size={20} strokeWidth={2} />
               <span style={{ fontSize: 10, marginTop: 1, fontWeight: 500 }}>Weiter</span>

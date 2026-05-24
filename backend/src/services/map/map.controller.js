@@ -545,33 +545,85 @@ async function getHeatmap(req, res) {
     const combined = [...liveHeatPoints, ...FAKE_HEAT_POINTS];
     const topHeatPoints = combined.slice(0, 13);
 
-    // 3. Also get our app's pins in the area (non-clickable overlay)
+    // 3. App-Pins im Bereich — anonym oder mit Profil je nach Nutzerstatus
     const today = now.toISOString().slice(0, 10);
-    const latDelta = pinRadius / 111000;
-    const lngDelta = pinRadius / (111000 * Math.cos(centerLat * Math.PI / 180));
+    const userId = req.user.id;
+    const activeOffer = db.prepare("SELECT id FROM table_offers WHERE user_id = ? AND status = 'active' AND date >= ? LIMIT 1").get(userId, today);
+    const activeSearch = db.prepare("SELECT id FROM seeker_searches WHERE user_id = ? AND status = 'active' LIMIT 1").get(userId);
+    const isActive = !!(activeOffer || activeSearch);
 
-    const offerPins = db.prepare(`
-      SELECT o.id, o.location_lat as lat, o.location_lng as lng,
-             o.location_text, o.time_from, o.time_until, p.display_name, p.emoji
-      FROM table_offers o JOIN profiles p ON p.user_id = o.user_id
-      WHERE o.status = 'active' AND o.date >= ?
-        AND o.location_lat BETWEEN ? AND ? AND o.location_lng BETWEEN ? AND ?
-    `).all(today, centerLat - latDelta, centerLat + latDelta, centerLng - lngDelta, centerLng + lngDelta);
+    // Aktive Nutzer sehen Profile im 5km-Umkreis, inaktive Nutzer sehen anonyme Pins im pinRadius
+    const profileRadius = isActive ? 5000 : pinRadius;
+    const latDelta = profileRadius / 111000;
+    const lngDelta = profileRadius / (111000 * Math.cos(centerLat * Math.PI / 180));
 
-    const seekerPins = db.prepare(`
-      SELECT s.id, s.location_lat as lat, s.location_lng as lng,
-             s.location_text, s.time_from, s.time_until, p.display_name, p.emoji
-      FROM seeker_searches s JOIN profiles p ON p.user_id = s.user_id
-      WHERE s.status = 'active' AND s.date >= ?
-        AND s.location_lat BETWEEN ? AND ? AND s.location_lng BETWEEN ? AND ?
-    `).all(today, centerLat - latDelta, centerLat + latDelta, centerLng - lngDelta, centerLng + lngDelta);
+    let offerPins, seekerPins;
+
+    if (isActive) {
+      offerPins = db.prepare(`
+        SELECT o.id, o.location_lat as lat, o.location_lng as lng,
+               o.location_text, o.time_from, o.time_until, o.available_seats, o.date,
+               p.display_name, p.emoji, p.photo_1, p.age, p.gender, p.bio, p.is_verified, p.badges
+        FROM table_offers o JOIN profiles p ON p.user_id = o.user_id
+        WHERE o.status = 'active' AND o.date >= ? AND o.user_id != ?
+          AND o.location_lat BETWEEN ? AND ? AND o.location_lng BETWEEN ? AND ?
+      `).all(today, userId, centerLat - latDelta, centerLat + latDelta, centerLng - lngDelta, centerLng + lngDelta)
+        .map(r => ({
+          id: r.id, lat: r.lat, lng: r.lng, type: 'offer',
+          locationText: r.location_text, timeFrom: r.time_from, timeUntil: r.time_until,
+          availableSeats: r.available_seats, date: r.date,
+          profile: {
+            displayName: r.display_name, emoji: r.emoji, photo: r.photo_1,
+            age: r.age, gender: r.gender, bio: r.bio,
+            isVerified: !!r.is_verified,
+            badges: r.badges ? JSON.parse(r.badges) : [],
+          },
+        }));
+
+      seekerPins = db.prepare(`
+        SELECT s.id, s.location_lat as lat, s.location_lng as lng,
+               s.location_text, s.time_from, s.time_until, s.seats_needed, s.date,
+               p.display_name, p.emoji, p.photo_1, p.age, p.gender, p.bio, p.is_verified, p.badges
+        FROM seeker_searches s JOIN profiles p ON p.user_id = s.user_id
+        WHERE s.status = 'active' AND s.date >= ? AND s.user_id != ?
+          AND s.location_lat BETWEEN ? AND ? AND s.location_lng BETWEEN ? AND ?
+      `).all(today, userId, centerLat - latDelta, centerLat + latDelta, centerLng - lngDelta, centerLng + lngDelta)
+        .map(r => ({
+          id: r.id, lat: r.lat, lng: r.lng, type: 'seeker',
+          locationText: r.location_text, timeFrom: r.time_from, timeUntil: r.time_until,
+          seatsNeeded: r.seats_needed, date: r.date,
+          profile: {
+            displayName: r.display_name, emoji: r.emoji, photo: r.photo_1,
+            age: r.age, gender: r.gender, bio: r.bio,
+            isVerified: !!r.is_verified,
+            badges: r.badges ? JSON.parse(r.badges) : [],
+          },
+        }));
+    } else {
+      offerPins = db.prepare(`
+        SELECT o.id, o.location_lat as lat, o.location_lng as lng
+        FROM table_offers o
+        WHERE o.status = 'active' AND o.date >= ?
+          AND o.location_lat BETWEEN ? AND ? AND o.location_lng BETWEEN ? AND ?
+      `).all(today, centerLat - latDelta, centerLat + latDelta, centerLng - lngDelta, centerLng + lngDelta)
+        .map(r => ({ ...r, type: 'offer' }));
+
+      seekerPins = db.prepare(`
+        SELECT s.id, s.location_lat as lat, s.location_lng as lng
+        FROM seeker_searches s
+        WHERE s.status = 'active' AND s.date >= ?
+          AND s.location_lat BETWEEN ? AND ? AND s.location_lng BETWEEN ? AND ?
+      `).all(today, centerLat - latDelta, centerLat + latDelta, centerLng - lngDelta, centerLng + lngDelta)
+        .map(r => ({ ...r, type: 'seeker' }));
+    }
 
     res.json({
       centerLat, centerLng, locationLabel,
       heatPoints: topHeatPoints,
       venueCount: allVenues.length,
-      offerPins: offerPins.map(p => ({ ...p, type: 'offer' })),
-      seekerPins: seekerPins.map(p => ({ ...p, type: 'seeker' })),
+      isActive,
+      offerPins,
+      seekerPins,
     });
   } catch (err) {
     console.error('getHeatmap Fehler:', err);

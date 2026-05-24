@@ -10,10 +10,10 @@ router.get('/:userId', authenticate, (req, res) => {
     const profile = db.prepare(`
       SELECT u.id, u.username, p.display_name, p.photo_1, p.bio, p.age, p.gender,
              p.emoji, p.badges, p.top10_public,
-             COUNT(m.id) as confirmed_count
+             COUNT(s.id) as received_likes
       FROM users u
       JOIN profiles p ON p.user_id = u.id
-      LEFT JOIN matches m ON m.offerer_id = u.id AND m.status = 'confirmed'
+      LEFT JOIN swipes s ON s.target_user_id = u.id AND s.direction IN ('like', 'superlike')
       WHERE u.id = ?
       GROUP BY u.id
     `).get(req.params.userId);

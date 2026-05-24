@@ -23,6 +23,7 @@ export default function ProfileScreen() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentEmoji, setCurrentEmoji] = useState(null);
   const [myBadges, setMyBadges] = useState([]);
+  const [myRank, setMyRank] = useState(null);
 
   const EMOJIS = [
     '😀','😎','🤩','😍','🥳','🤠','🎭','👑',
@@ -35,6 +36,7 @@ export default function ProfileScreen() {
     loadProfile();
     loadNotifSettings();
     if (FEATURES.inclusivityBadges) loadBadges();
+    api.get('/leaderboard/my-rank').then(r => setMyRank(r.data)).catch(() => {});
   }, []);
 
   async function loadProfile() {
@@ -197,6 +199,11 @@ export default function ProfileScreen() {
               <span className="text-gray-500 dark:text-gray-400">{profile?.age}</span>
             </div>
             {profile?.bio && <p className="text-gray-600 dark:text-gray-400 mt-2 max-w-xs mx-auto">{profile.bio}</p>}
+            {myRank && (
+              <p className="text-xs mt-2 font-semibold" style={{ color: myRank.rank <= 3 ? '#FBBF24' : myRank.rank <= 10 ? '#A78BFA' : 'rgba(156,163,175,1)' }}>
+                {myRank.rank <= 10 ? '🏆' : '🎯'} Dein Match-Rang: Platz {myRank.rank} ({myRank.matches} Matches)
+              </p>
+            )}
             <button
               onClick={() => setEditing(true)}
               className="mt-3 text-tinder-pink text-sm font-medium flex items-center gap-1 mx-auto"

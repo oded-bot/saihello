@@ -6,13 +6,14 @@ function getTop10() {
     SELECT u.id, u.username,
            p.display_name, p.photo_1, p.emoji, p.bio,
            p.top10_public,
-           COUNT(m.id) as confirmed_count
-    FROM matches m
-    JOIN users u ON u.id = m.offerer_id
+           COUNT(m.id) as confirmed_matches
+    FROM users u
     JOIN profiles p ON p.user_id = u.id
-    WHERE m.status = 'confirmed'
+    LEFT JOIN matches m ON (m.offerer_id = u.id OR m.seeker_id = u.id)
+      AND m.status = 'confirmed'
     GROUP BY u.id
-    ORDER BY confirmed_count DESC
+    HAVING confirmed_matches > 0
+    ORDER BY confirmed_matches DESC
     LIMIT 10
   `).all();
 }
@@ -22,7 +23,6 @@ function broadcast(io) {
   const top10 = getTop10();
   const prevIds = new Set(prev.map(e => e.id));
 
-  // Notify new entrants
   top10.forEach(entry => {
     if (!prevIds.has(entry.id)) {
       db.prepare(`
@@ -36,4 +36,26 @@ function broadcast(io) {
   io.emit('leaderboard_update', top10);
 }
 
-module.exports = { getTop10, broadcast };
+function getMyRank(userId) {
+  const row = db.prepare(`
+    SELECT COUNT(*) + 1 as rank,
+           (SELECT COUNT(*) FROM matches
+            WHERE (offerer_id = ? OR seeker_id = ?) AND status = 'confirmed') as my_matches
+    FROM (
+      SELECT user_id, COUNT(*) as cnt
+      FROM (
+        SELECT offerer_id as user_id FROM matches WHERE status = 'confirmed'
+        UNION ALL
+        SELECT seeker_id as user_id FROM matches WHERE status = 'confirmed'
+      )
+      GROUP BY user_id
+      HAVING cnt > (
+        SELECT COUNT(*) FROM matches
+        WHERE (offerer_id = ? OR seeker_id = ?) AND status = 'confirmed'
+      )
+    )
+  `).get(userId, userId, userId, userId);
+  return { rank: row.rank, matches: row.my_matches };
+}
+
+module.exports = { getTop10, getMyRank, broadcast };

@@ -233,7 +233,7 @@ function SeekerWizard({ onClose, onActivate, loading }) {
     try {
       const { data } = await api.get('/tables/geocode-check', { params: { q: location.locationText.trim() } });
       if (data.status === 'ok') {
-        setLocation(prev => ({ ...prev, locationLat: data.lat, locationLng: data.lng }));
+        setLocation(prev => ({ ...prev, locationText: data.displayName || prev.locationText, locationLat: data.lat, locationLng: data.lng }));
         setStep(s => s + 1);
       } else if (data.status === 'needs_confirm') {
         setGeocodeConfirm({ displayName: data.displayName, lat: data.lat, lng: data.lng });
@@ -787,29 +787,38 @@ export default function SwipeScreen() {
 
       {/* Seeker-Panel */}
       {activeSearch ? (
-        <div className="flex items-center justify-between bg-app-violet/10 border border-app-violet/30 rounded-2xl px-4 py-3 mb-3">
-          <div>
-            <p className="text-xs text-app-violet font-semibold">{t('searchActive')}</p>
-            <p className="text-sm text-white truncate max-w-[200px]">{activeSearch.location_text || 'Mein Standort'}</p>
+        <div className="bg-app-violet/10 border border-app-violet/30 rounded-2xl px-4 py-3 mb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-app-violet font-semibold mb-1">{t('searchActive')}</p>
+              <p className="text-sm text-white font-medium">
+                {activeSearch.location_text || t('myLocation')}
+              </p>
+              <p className="text-xs text-white/50 mt-0.5">
+                {[
+                  activeSearch.date,
+                  activeSearch.time_from && activeSearch.time_until ? `${activeSearch.time_from}–${activeSearch.time_until}` : null,
+                  activeSearch.seats_needed ? `${activeSearch.seats_needed} Platz/Plätze` : null,
+                  activeSearch.category && activeSearch.category !== 'alle' ? activeSearch.category : null,
+                ].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+            <button
+              onClick={deactivateSearch}
+              className="w-8 h-8 rounded-full bg-dark-elevated flex items-center justify-center shrink-0 mt-0.5"
+            >
+              <X size={16} className="text-white/60" />
+            </button>
           </div>
-          <button
-            onClick={deactivateSearch}
-            className="w-8 h-8 rounded-full bg-dark-elevated flex items-center justify-center"
-          >
-            <X size={16} className="text-white/60" />
-          </button>
         </div>
       ) : (
-        <div className="mb-3">
+        <div className="bg-dark-elevated/50 border border-white/10 rounded-2xl px-4 py-3 mb-3 flex items-center justify-between">
+          <p className="text-sm text-white/40">{t('noSearchActive')}</p>
           <button
             onClick={() => setShowSeekerWizard(true)}
-            className="w-full flex items-center justify-between px-4 py-3 glass rounded-2xl border border-white/10 active:scale-[0.99] transition"
+            className="text-xs text-app-violet font-semibold"
           >
-            <div className="flex items-center gap-2">
-              <Search size={16} className="text-app-violet" />
-              <span className="text-sm font-semibold text-white">{t('mySearch')}</span>
-            </div>
-            <ChevronDown size={16} className="text-white/40" />
+            {t('startSearch')}
           </button>
         </div>
       )}

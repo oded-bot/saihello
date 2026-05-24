@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Flame, Camera, Image as ImageIcon, ChevronLeft, Plus, Minus, X, Edit2, Trash2, Clock, Users, ChevronDown } from 'lucide-react';
 import api from '../../utils/api';
 import useLanguage from '../../hooks/useLanguage';
@@ -61,7 +61,7 @@ function OfferWizard({ onCancel, onSuccess }) {
     try {
       const { data } = await api.get('/tables/geocode-check', { params: { q: location.locationText.trim() } });
       if (data.status === 'ok') {
-        setLocation(prev => ({ ...prev, locationLat: data.lat, locationLng: data.lng }));
+        setLocation(prev => ({ ...prev, locationText: data.displayName || prev.locationText, locationLat: data.lat, locationLng: data.lng }));
         next();
       } else if (data.status === 'needs_confirm') {
         setGeocodeConfirm({ displayName: data.displayName, lat: data.lat, lng: data.lng });
@@ -118,7 +118,7 @@ function OfferWizard({ onCancel, onSuccess }) {
       });
 
       toast.success('Angebot veröffentlicht! 🎉');
-      onSuccess();
+      onSuccess({ lat: location.locationLat, lng: location.locationLng });
     } catch (err) {
       const code = err.response?.data?.code;
       if (code === 'ROLE_LOCKED_SEARCHING') {
@@ -584,7 +584,7 @@ function EditForm({ offer, onCancel, onSaved }) {
         seatsAnyGender:  genderEgal ? 0 : seatsAnyGender,
       });
       toast.success(t('offerUpdated'));
-      onSaved();
+      onSaved({ lat: offer.location_lat || null, lng: offer.location_lng || null });
     } catch (err) {
       toast.error(err.response?.data?.error || t('updateFailed'));
     } finally {
@@ -692,10 +692,12 @@ function EditForm({ offer, onCancel, onSaved }) {
 export default function OfferScreen() {
   const { t }        = useLanguage();
   const navigate     = useNavigate();
+  const navLocation  = useLocation();
   const [myOffers, setMyOffers]       = useState([]);
   const [loadingOffers, setLoadingOffers] = useState(true);
   const [showWizard, setShowWizard]   = useState(false);
   const [editingOffer, setEditingOffer] = useState(null);
+  const [mapModal, setMapModal]       = useState(null); // { lat, lng } nach Angebotsabgabe
 
   useEffect(() => { loadMyOffers(); }, []);
 
@@ -731,7 +733,11 @@ export default function OfferScreen() {
     return (
       <OfferWizard
         onCancel={() => { if (myOffers.length > 0) setShowWizard(false); else navigate(-1); }}
-        onSuccess={() => { setShowWizard(false); loadMyOffers(); }}
+        onSuccess={({ lat, lng } = {}) => {
+          setShowWizard(false);
+          loadMyOffers();
+          setMapModal({ lat: lat || null, lng: lng || null });
+        }}
       />
     );
   }
@@ -741,7 +747,7 @@ export default function OfferScreen() {
       <EditForm
         offer={editingOffer}
         onCancel={() => setEditingOffer(null)}
-        onSaved={() => { setEditingOffer(null); loadMyOffers(); }}
+        onSaved={({ lat, lng } = {}) => { setEditingOffer(null); loadMyOffers(); setMapModal({ lat: lat || null, lng: lng || null }); }}
       />
     );
   }
@@ -800,6 +806,32 @@ export default function OfferScreen() {
         <Plus size={20} />
         {t('newOffer')}
       </button>
+
+      {/* Modal: Karte nach Angebotsabgabe */}
+      {mapModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'rgba(18,10,35,0.98)', border: '1.5px solid rgba(124,58,237,0.5)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 340 }}>
+            <p className="text-white font-black text-lg mb-2">Dein Angebot ist live! 🎉</p>
+            <p className="text-white/60 text-sm mb-7 leading-relaxed">Möchtest du sehen, wer in deiner Nähe gerade einen Platz sucht?</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => { setMapModal(null); navigate('/map', { state: { lat: mapModal.lat || undefined, lng: mapModal.lng || undefined } }); }}
+                className="w-full py-3.5 rounded-xl text-white font-bold text-sm"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
+              >
+                Ja, zur Karte
+              </button>
+              <button
+                onClick={() => setMapModal(null)}
+                className="w-full py-3 rounded-xl text-white/60 font-medium text-sm"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
+              >
+                Nein, zurück
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
