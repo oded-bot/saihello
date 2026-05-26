@@ -5,28 +5,6 @@ const leaderboard = require('../leaderboard/leaderboard');
 let _io = null;
 function setIo(io) { _io = io; }
 
-function getSuperLikeStatus(req, res) {
-  try {
-    const userId = req.user.id;
-    const today = new Date().toISOString().split('T')[0];
-    const maxPerDay = 1; // später 5 für Premium
-
-    const count = db.prepare(`
-      SELECT COUNT(*) as c FROM swipes
-      WHERE swiper_id = ? AND direction = 'superlike'
-        AND date(created_at) = ?
-    `).get(userId, today);
-
-    const used = count?.c || 0;
-    const remaining = Math.max(0, maxPerDay - used);
-
-    res.json({ used, remaining, max: maxPerDay });
-  } catch (err) {
-    console.error('getSuperLikeStatus Fehler:', err);
-    res.status(500).json({ error: 'Status laden fehlgeschlagen' });
-  }
-}
-
 function swipe(req, res) {
   try {
     const { offerId, direction } = req.body;
@@ -38,22 +16,6 @@ function swipe(req, res) {
     ).get(userId);
     if (confirmedMatch) {
       return res.status(403).json({ error: 'Du hast bereits einen bestätigten Platz' });
-    }
-
-    // Super Like Limit prüfen
-    if (direction === 'superlike') {
-      const today = new Date().toISOString().split('T')[0];
-      const maxPerDay = 1; // später 5 für Premium
-
-      const count = db.prepare(`
-        SELECT COUNT(*) as c FROM swipes
-        WHERE swiper_id = ? AND direction = 'superlike'
-          AND date(created_at) = ?
-      `).get(userId, today);
-
-      if ((count?.c || 0) >= maxPerDay) {
-        return res.status(403).json({ error: 'Super Like Limit erreicht (1/Tag)' });
-      }
     }
 
     const offer = db.prepare(
@@ -76,7 +38,7 @@ function swipe(req, res) {
 
     let match = null;
 
-    if (direction === 'like' || direction === 'superlike') {
+    if (direction === 'like') {
       const matchId = uuid();
       const result = db.prepare(`
         INSERT OR IGNORE INTO matches (id, offer_id, offerer_id, seeker_id, seats_granted, status)
@@ -415,7 +377,7 @@ function getReceivedLikes(req, res) {
       JOIN table_offers o ON o.id = s.target_offer_id
       JOIN profiles p ON p.user_id = s.swiper_id
       WHERE s.target_user_id = ?
-        AND s.direction IN ('like', 'superlike')
+        AND s.direction = 'like'
         AND o.status = 'active'
       ORDER BY s.created_at DESC
     `).all(userId);
@@ -467,4 +429,4 @@ function inviteSeeker(req, res) {
   }
 }
 
-module.exports = { swipe, inviteSeeker, getSuperLikeStatus, getMatches, getMatchDetail, confirmMatch, acceptInvite, rejectMatch, cancelMatch, rateMatch, getReceivedLikes, setIo };
+module.exports = { swipe, inviteSeeker, getMatches, getMatchDetail, confirmMatch, acceptInvite, rejectMatch, cancelMatch, rateMatch, getReceivedLikes, setIo };

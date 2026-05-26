@@ -44,7 +44,7 @@ export async function requestPushPermission() {
 
 // Gibt zurück ob Push bereits aktiv ist
 export async function isPushActive() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return false;
   if (Notification.permission !== 'granted') return false;
   try {
     const registration = await navigator.serviceWorker.ready;

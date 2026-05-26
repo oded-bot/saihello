@@ -6,6 +6,7 @@ import useLanguage from '../../hooks/useLanguage';
 import toast from 'react-hot-toast';
 import ImageLightbox from '../Shared/ImageLightbox';
 import LocationPicker from '../Shared/LocationPicker';
+import HintBubble from '../Shared/HintBubble';
 
 function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
   const { t } = useLanguage();
@@ -903,7 +904,13 @@ export default function SwipeScreen() {
 
       {/* Action Button */}
       {currentOffer && (
-        <div className="flex justify-center items-center">
+        <div className="flex justify-center items-center" style={{ position: 'relative' }}>
+          <HintBubble
+            id="swipe_like"
+            text="Gefällt dir das Angebot? Tippe auf Herz oder wische die Karte nach rechts. Wische links zum Überspringen."
+            position="top"
+            delay={800}
+          />
           {/* Like (grün) */}
           <button
             onClick={() => handleSwipe('like')}

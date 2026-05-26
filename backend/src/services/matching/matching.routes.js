@@ -10,19 +10,16 @@ router.use(authMiddleware);
 // Anbieter lädt Suchenden direkt ein (vom Kartenpin)
 router.post('/invite-seeker', [
   body('seekerUserId').isUUID().withMessage('Suchender-ID erforderlich'),
-  body('direction').isIn(['like', 'superlike']).withMessage('like oder superlike'),
+  body('direction').isIn(['like']).withMessage('like erforderlich'),
   validate,
 ], matchingController.inviteSeeker);
 
 // Swipe auf ein Angebot
 router.post('/swipe', [
   body('offerId').isUUID().withMessage('Angebots-ID erforderlich'),
-  body('direction').isIn(['like', 'pass', 'superlike']).withMessage('like, pass oder superlike'),
+  body('direction').isIn(['like', 'pass']).withMessage('like oder pass'),
   validate,
 ], matchingController.swipe);
-
-// Super Like Status (wie viele übrig heute)
-router.get('/superlike-status', matchingController.getSuperLikeStatus);
 
 // Meine Matches
 router.get('/matches', matchingController.getMatches);

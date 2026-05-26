@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronDown, ChevronUp, MapPin, ThumbsUp, X, CheckCircle, 
 import toast from 'react-hot-toast';
 import api from '../../utils/api';
 import { requestPushPermission, isPushActive } from '../../utils/pushNotifications';
+import HintBubble from '../Shared/HintBubble';
 
 // ─── Comment Panel — identisch zum Life Feed ──────────────────────────────────
 function CommentPanel({ photoId, onClose, onCountChange }) {
@@ -444,15 +445,19 @@ export default function YesterdayScreen() {
       </div>
 
       {/* Push-Banner */}
-      {showPushBanner && Notification.permission !== 'denied' && (
+      {showPushBanner && (typeof Notification === 'undefined' || Notification.permission !== 'denied') && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-violet-50 dark:bg-violet-900/20 border-b border-violet-100 dark:border-violet-800/30">
           <span className="text-lg">🔔</span>
           <p className="flex-1 text-xs text-violet-700 dark:text-violet-300">Benachrichtigungen aktivieren und Match-Anfragen sofort erhalten</p>
           <button
             onClick={async () => {
+              if (!('PushManager' in window)) {
+                toast('Auf Safari: App zum Home-Bildschirm hinzufügen, dann funktionieren Benachrichtigungen.', { icon: '📱', duration: 5000 });
+                return;
+              }
               const ok = await requestPushPermission();
               if (ok) { toast.success('Benachrichtigungen aktiviert!'); setShowPushBanner(false); }
-              else toast.error('Benachrichtigungen wurden nicht erlaubt.');
+              else toast.error('Benachrichtigungen blockiert. Bitte in den Browser-Einstellungen erlauben.');
             }}
             className="shrink-0 bg-violet-600 text-white text-xs font-semibold px-3 py-1.5 rounded-xl active:scale-95 transition"
           >
@@ -485,7 +490,15 @@ export default function YesterdayScreen() {
                   <>
                     <p className="text-xs text-gray-400 mb-2">Wähle einen Ort und setze einen Pin – andere User, die dort ebenfalls waren und ebenfalls einen Pin gesetzt haben, erscheinen in deinem Feed.</p>
                     {locations.map((loc, i) => (
-                      <div key={i} className="bg-white dark:bg-dark-card rounded-2xl p-4 shadow-sm flex items-center gap-3">
+                      <div key={i} style={{ position: 'relative' }} className="bg-white dark:bg-dark-card rounded-2xl p-4 shadow-sm flex items-center gap-3">
+                        {i === 0 && !loc.pinned && (
+                          <HintBubble
+                            id="yesterday_pin"
+                            text="Setze einen Pin für diesen Ort — so siehst du, wer gestern ebenfalls dort war."
+                            position="bottom"
+                            delay={700}
+                          />
+                        )}
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${loc.pinned ? 'bg-tinder-pink/10' : 'bg-gray-100 dark:bg-dark-elevated'}`}>
                           <MapPin size={18} className={loc.pinned ? 'text-tinder-pink' : 'text-gray-400'} />
                         </div>

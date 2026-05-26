@@ -77,7 +77,7 @@ function RecenterMap({ center }) {
   return null;
 }
 
-function PinPopup({ pin, onLike, onSuperLike, onClose, isOffer }) {
+function PinPopup({ pin, onLike, onClose, isOffer }) {
   const p = pin.profile;
   const genderLabel = { m: 'Männlich', f: 'Weiblich', d: 'Divers' };
 
@@ -85,7 +85,7 @@ function PinPopup({ pin, onLike, onSuperLike, onClose, isOffer }) {
     <div className="fixed inset-0 z-[1003] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div
         className="w-full max-w-md rounded-t-3xl p-6 shadow-2xl"
-        style={{ background: 'rgba(18,10,35,0.98)', border: '1px solid rgba(124,58,237,0.3)', paddingBottom: 'calc(env(safe-area-inset-bottom, 34px) + 50px)' }}
+        style={{ background: 'rgba(18,10,35,0.98)', border: '1px solid rgba(124,58,237,0.3)', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 90px)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Handle */}
@@ -128,9 +128,6 @@ function PinPopup({ pin, onLike, onSuperLike, onClose, isOffer }) {
         <div className="flex gap-3">
           <button onClick={() => onLike(pin)} className="flex-1 py-3 rounded-xl font-semibold text-sm text-white" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
             Like
-          </button>
-          <button onClick={() => onSuperLike(pin)} className="flex-1 py-3 rounded-xl font-semibold text-sm text-white" style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
-            Super Like
           </button>
         </div>
       </div>
@@ -238,25 +235,6 @@ export default function MapScreen() {
     }
   };
 
-  const handleSuperLike = async (pin) => {
-    try {
-      if (myStatus === 'offer') {
-        await api.post('/matching/invite-seeker', { seekerUserId: pin.userId, direction: 'superlike' });
-      } else if (myStatus === 'search') {
-        await api.post('/matching/swipe', { offerId: pin.id, direction: 'superlike' });
-      } else {
-        return;
-      }
-      setSelectedPin(null);
-      setFeedback('Super Like gesendet!');
-      setTimeout(() => setFeedback(''), 2000);
-      loadData();
-    } catch (err) {
-      setFeedback(err.response?.data?.error || 'Fehler');
-      setTimeout(() => setFeedback(''), 2000);
-    }
-  };
-
   const handleDeleteOwnItem = async () => {
     try {
       if (myStatus === 'offer') {
@@ -287,15 +265,15 @@ export default function MapScreen() {
     }
   };
 
-  const handleFeedLike = async (item, type) => {
+  const handleFeedLike = async (item) => {
     try {
       if (myStatus === 'offer') {
-        await api.post('/matching/invite-seeker', { seekerUserId: item.userId, direction: type });
+        await api.post('/matching/invite-seeker', { seekerUserId: item.userId, direction: 'like' });
       } else {
-        await api.post('/matching/swipe', { offerId: item.id, direction: type });
+        await api.post('/matching/swipe', { offerId: item.id, direction: 'like' });
       }
       setFeedItems(prev => prev.filter(f => f.id !== item.id));
-      setFeedback(type === 'like' ? 'Like gesendet!' : 'Super Like gesendet!');
+      setFeedback('Like gesendet!');
       setTimeout(() => setFeedback(''), 2000);
     } catch (err) {
       setFeedback(err.response?.data?.error || 'Fehler');
@@ -324,7 +302,7 @@ export default function MapScreen() {
                 onClick={() => setShowBadgeFilter(v => !v)}
                 className={`px-3 py-2 text-sm font-semibold border-b-2 transition ${badgeFilter.length > 0 ? 'text-violet-600 border-violet-600' : 'text-gray-400 border-transparent'}`}
               >
-                {badgeFilter.length > 0 ? `Filter (${badgeFilter.length})` : '🏷 Filter'}
+                {badgeFilter.length > 0 ? `🏷 Filter (${badgeFilter.length})` : '🏷 Filter'}
               </button>
             )}
           </div>
@@ -408,13 +386,9 @@ export default function MapScreen() {
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleFeedLike(item, 'like')}
+                  onClick={() => handleFeedLike(item)}
                   className="flex-1 bg-green-500 text-white py-2 rounded-xl text-sm font-semibold"
                 >Like</button>
-                <button
-                  onClick={() => handleFeedLike(item, 'superlike')}
-                  className="flex-1 bg-blue-900 text-white py-2 rounded-xl text-sm font-semibold"
-                >Super Like</button>
               </div>
             </div>
           ))}
@@ -506,10 +480,9 @@ export default function MapScreen() {
                 {FEATURES.inclusivityBadges && (
                   <button
                     onClick={() => setShowBadgeFilter(v => !v)}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center text-base transition ${badgeFilter.length > 0 ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-500'}`}
-                    title="Badge-Filter"
+                    className={`px-4 py-2 rounded-full text-sm font-semibold transition ${badgeFilter.length > 0 ? 'bg-violet-600 text-white' : 'bg-white/10 text-white/60'}`}
                   >
-                    {badgeFilter.length > 0 ? `${badgeFilter.length}` : '🏷'}
+                    {badgeFilter.length > 0 ? `🏷 Filter (${badgeFilter.length})` : '🏷 Filter'}
                   </button>
                 )}
               </div>
@@ -597,7 +570,7 @@ export default function MapScreen() {
 
       {ownPinPopup && myItem && (
         <div className="fixed inset-0 z-[1003] flex items-end justify-center bg-black/60" onClick={() => setOwnPinPopup(false)}>
-          <div className="w-full max-w-md rounded-t-3xl p-6 shadow-2xl" style={{ background: 'rgba(18,10,35,0.98)', border: '1px solid rgba(124,58,237,0.3)', paddingBottom: 'calc(env(safe-area-inset-bottom, 34px) + 50px)' }} onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-t-3xl p-6 shadow-2xl" style={{ background: 'rgba(18,10,35,0.98)', border: '1px solid rgba(124,58,237,0.3)', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 90px)' }} onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5" />
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-lg text-white">
@@ -637,7 +610,6 @@ export default function MapScreen() {
           isOffer={myStatus === 'search'}
           onClose={() => setSelectedPin(null)}
           onLike={handleLike}
-          onSuperLike={handleSuperLike}
         />
       )}
 

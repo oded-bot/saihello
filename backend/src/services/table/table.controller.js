@@ -311,8 +311,11 @@ function discoverOffers(req, res) {
         AND NOT EXISTS (
           SELECT 1 FROM daily_blocks db WHERE db.user_id = ? AND db.offer_id = o.id AND db.blocked_date = date('now')
         )
+        AND NOT EXISTS (
+          SELECT 1 FROM matches m WHERE m.offer_id = o.id AND m.seeker_id = ?
+        )
     `;
-    const params = [userId, userId, userId];
+    const params = [userId, userId, userId, userId];
 
     if (date) {
       query += ' AND o.date = ?';
