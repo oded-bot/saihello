@@ -262,6 +262,7 @@ export default function YesterdayScreen() {
   const [locations, setLocations] = useState([]);
   const [feed, setFeed] = useState([]);
   const [photos, setPhotos] = useState([]);
+  const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [settingPin, setSettingPin] = useState(null);
   const [activeTab, setActiveTab] = useState('locations');
@@ -291,15 +292,18 @@ export default function YesterdayScreen() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [locRes, feedRes, photoRes] = await Promise.all([
+      const [locRes, feedRes, photoRes, chatRes] = await Promise.all([
         api.get('/yesterday/locations'),
         api.get('/yesterday/feed'),
         api.get('/yesterday/photos'),
+        api.get('/yesterday/requests'),
       ]);
       setLocations(locRes.data);
       setFeed(feedRes.data);
       setPhotos(photoRes.data);
-      if (feedRes.data.length > 0) setActiveTab('feed');
+      const accepted = (chatRes.data || []).filter(r => r.status === 'accepted');
+      setChats(accepted);
+      if (accepted.length > 0 || feedRes.data.length > 0) setActiveTab('feed');
     } catch (err) {
       console.error(err);
     } finally {
@@ -319,7 +323,7 @@ export default function YesterdayScreen() {
       setFeed(feedRes.data);
       setLocations(locRes.data);
       setPhotos(photoRes.data);
-      if (feedRes.data.length > 0) setActiveTab('feed');
+      if (chats.length > 0 || feedRes.data.length > 0) setActiveTab('feed');
     } catch (err) {
       console.error(err);
     } finally {
@@ -336,6 +340,14 @@ export default function YesterdayScreen() {
       if (data.mutualMatch && data.chatId) {
         toast.success('Match! 🎉 Ihr habt euch beide geliked.');
         navigate(`/yesterday/chat/${data.chatId}`);
+      } else {
+        const firstLike = !localStorage.getItem('yesterday_like_hint_shown');
+        if (firstLike) {
+          localStorage.setItem('yesterday_like_hint_shown', '1');
+          toast('👍 Like gesendet! Wenn die Person dich auch liked, könnt ihr chatten.', { duration: 4000 });
+        } else {
+          toast.success('👍 Like gesendet!');
+        }
       }
     } catch (err) {
       console.error(err);
@@ -422,7 +434,7 @@ export default function YesterdayScreen() {
       <div className="flex bg-white dark:bg-dark-card border-b border-gray-100 dark:border-dark-separator">
         {[
           { key: 'locations', label: 'Meine Orte', badge: pinnedCount > 0 ? pinnedCount : null },
-          { key: 'feed', label: 'Feed', badge: feed.length > 0 ? feed.length : null },
+          { key: 'feed', label: 'Feed', badge: (feed.length + chats.length) > 0 ? (feed.length + chats.length) : null },
           { key: 'photos', label: 'Bilder', badge: photos.length > 0 ? photos.length : null },
         ].map(tab => (
           <button
@@ -532,13 +544,45 @@ export default function YesterdayScreen() {
             {/* FEED TAB */}
             {activeTab === 'feed' && (
               <div className="p-4 space-y-3">
-                {feed.length === 0 ? (
+
+                {/* Matches-Streifen */}
+                {chats.length > 0 && (
+                  <div className="mb-1">
+                    <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Matches</p>
+                    <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
+                      {chats.map(chat => (
+                        <button
+                          key={chat.id}
+                          onClick={() => navigate(`/yesterday/chat/${chat.chatId}`)}
+                          className="flex flex-col items-center gap-1 shrink-0 active:scale-95 transition"
+                        >
+                          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-tinder-pink to-tinder-orange p-[2px]">
+                            <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-dark-bg">
+                              {chat.otherUser?.photo
+                                ? <img src={chat.otherUser.photo} alt="" className="w-full h-full object-cover" />
+                                : <div className="w-full h-full flex items-center justify-center text-xl font-bold text-tinder-pink">
+                                    {chat.otherUser?.displayName?.charAt(0) || '?'}
+                                  </div>
+                              }
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium max-w-[56px] truncate">
+                            {chat.otherUser?.displayName}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="border-b border-gray-100 dark:border-dark-separator mt-3" />
+                  </div>
+                )}
+
+                {feed.length === 0 && chats.length === 0 ? (
                   <div className="text-center py-12">
                     <ThumbsUp size={36} className="mx-auto text-gray-300 mb-3" />
                     <p className="text-gray-500 text-sm font-medium">Noch niemand in deinem Feed</p>
                     <p className="text-gray-400 text-xs mt-1">Setze einen Pin, um Personen zu entdecken, die ebenfalls dort waren</p>
                   </div>
-                ) : (
+                ) : feed.length === 0 ? null : (
                   feed.map(user => (
                     <div
                       key={user.userId}

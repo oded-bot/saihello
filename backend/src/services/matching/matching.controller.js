@@ -10,12 +10,13 @@ function swipe(req, res) {
     const { offerId, direction } = req.body;
     const userId = req.user.id;
 
-    // Fix 6: Prüfe ob User schon einen confirmed Match als Suchender hat
-    const confirmedMatch = db.prepare(
-      "SELECT id FROM matches WHERE seeker_id = ? AND status = 'confirmed'"
-    ).get(userId);
-    if (confirmedMatch) {
-      return res.status(403).json({ error: 'Du hast bereits einen bestätigten Platz' });
+    if (direction === 'like') {
+      const confirmedMatch = db.prepare(
+        "SELECT id FROM matches WHERE seeker_id = ? AND status = 'confirmed'"
+      ).get(userId);
+      if (confirmedMatch) {
+        return res.status(403).json({ error: 'Du hast bereits einen bestätigten Platz' });
+      }
     }
 
     const offer = db.prepare(
@@ -42,17 +43,11 @@ function swipe(req, res) {
       const matchId = uuid();
       const result = db.prepare(`
         INSERT OR IGNORE INTO matches (id, offer_id, offerer_id, seeker_id, seats_granted, status)
-        VALUES (?, ?, ?, ?, 1, 'active')
+        VALUES (?, ?, ?, ?, 1, 'pending')
       `).run(matchId, offerId, offer.user_id, userId);
 
       if (result.changes > 0) {
         match = { id: matchId, isNew: true };
-
-        // System-Nachricht
-        db.prepare(`
-          INSERT INTO messages (id, match_id, sender_id, content, message_type)
-          VALUES (?, ?, ?, 'Match! Ihr könnt jetzt chatten.', 'system')
-        `).run(uuid(), matchId, userId);
       }
     }
 
@@ -87,7 +82,7 @@ function getMatches(req, res) {
       JOIN profiles op ON op.user_id = m.offerer_id
       JOIN profiles sp ON sp.user_id = m.seeker_id
       WHERE (m.offerer_id = ? OR m.seeker_id = ?)
-        AND m.status IN ('active', 'invited', 'confirmed')
+        AND m.status IN ('pending', 'active', 'invited', 'confirmed')
       ORDER BY last_message_at DESC, m.created_at DESC
     `).all(userId, userId, userId, userId, userId, userId, userId, userId, userId, userId);
 
@@ -129,125 +124,76 @@ function getMatchDetail(req, res) {
   }
 }
 
-// Schritt 1: Anbieter sendet Einladung (Status → 'invited')
+// Anbieter bestätigt Anfrage → Match direkt confirmed, Chat öffnet sich
 function confirmMatch(req, res) {
   try {
     const { matchId } = req.params;
-    const { message: personalMsg, seats: grantedSeats } = req.body;
+    const { seats: grantedSeats } = req.body;
     const userId = req.user.id;
 
     const match = db.prepare(
-      "SELECT id, offerer_id, seeker_id, offer_id, seats_granted FROM matches WHERE id = ? AND offerer_id = ? AND status = 'active'"
+      "SELECT id, offerer_id, seeker_id, offer_id, seats_granted FROM matches WHERE id = ? AND offerer_id = ? AND status IN ('pending', 'active')"
     ).get(matchId, userId);
 
     if (!match) {
-      return res.status(404).json({ error: 'Match nicht gefunden oder du bist nicht der Anbieter' });
+      return res.status(404).json({ error: 'Anfrage nicht gefunden oder du bist nicht der Anbieter' });
     }
 
     const seatsToGrant = grantedSeats || match.seats_granted || 1;
 
-    // Status auf 'invited' setzen — Angebot bleibt noch sichtbar
-    db.prepare("UPDATE matches SET status = 'invited', seats_granted = ? WHERE id = ?")
-      .run(seatsToGrant, matchId);
-
-    const offer = db.prepare(`
-      SELECT id, date, time_from, time_until, available_seats, location_text
-      FROM table_offers WHERE id = ?
-    `).get(match.offer_id);
-
-    const offererProfile = db.prepare('SELECT display_name FROM profiles WHERE user_id = ?').get(match.offerer_id);
-
-    // Einladungs-Nachricht
-    let inviteMsg = `🎉 EINLADUNG!\n\n📍 ${offer.location_text || 'Treffpunkt'}\n📅 ${offer.date}\n🕐 ${offer.time_from} – ${offer.time_until}\n💺 ${seatsToGrant} Platz/Plätze für dich`;
-    if (personalMsg) {
-      inviteMsg += `\n\n💬 ${personalMsg}`;
-    }
-    inviteMsg += `\n\n${offererProfile.display_name} erwartet dich. Nimm die Einladung an um deinen Platz zu sichern!`;
-
-    db.prepare(`
-      INSERT INTO messages (id, match_id, sender_id, content, message_type)
-      VALUES (?, ?, ?, ?, 'invite')
-    `).run(uuid(), matchId, userId, inviteMsg);
-
-    res.json({ message: 'Einladung gesendet!' });
-  } catch (err) {
-    console.error('confirmMatch Fehler:', err);
-    res.status(500).json({ error: 'Bestätigung fehlgeschlagen' });
-  }
-}
-
-// Schritt 2: Suchender nimmt Einladung an (Status → 'confirmed', Angebot wird reduziert/entfernt)
-function acceptInvite(req, res) {
-  try {
-    const { matchId } = req.params;
-    const userId = req.user.id;
-
-    const match = db.prepare(
-      "SELECT id, offerer_id, seeker_id, offer_id, seats_granted FROM matches WHERE id = ? AND seeker_id = ? AND status = 'invited'"
-    ).get(matchId, userId);
-
-    if (!match) {
-      return res.status(404).json({ error: 'Keine offene Einladung gefunden' });
-    }
-
-    // === EXKLUSIVITÄT ===
-    const exclusivityTx = db.transaction(() => {
-      // 1. Diesen Match bestätigen
-      db.prepare("UPDATE matches SET status = 'confirmed', confirmed_at = datetime('now') WHERE id = ?")
-        .run(matchId);
+    const confirmTx = db.transaction(() => {
+      // 1. Match direkt bestätigen
+      db.prepare("UPDATE matches SET status = 'confirmed', seats_granted = ?, confirmed_at = datetime('now') WHERE id = ?")
+        .run(seatsToGrant, matchId);
 
       // 2. Plätze im Angebot reduzieren
       const offer = db.prepare('SELECT id, available_seats FROM table_offers WHERE id = ?').get(match.offer_id);
-      const newSeats = Math.max(0, (offer.available_seats || 0) - match.seats_granted);
+      const newSeats = Math.max(0, (offer.available_seats || 0) - seatsToGrant);
       if (newSeats <= 0) {
         db.prepare("UPDATE table_offers SET status = 'full' WHERE id = ?").run(offer.id);
       } else {
         db.prepare("UPDATE table_offers SET available_seats = ? WHERE id = ?").run(newSeats, offer.id);
       }
 
-      // 3. Fix 3: Nur wenn keine Plätze mehr → andere Offer-Matches schließen
+      // 3. Andere Anfragen für dieses Angebot canceln falls keine Plätze mehr
       if (newSeats <= 0) {
         const otherOfferMatches = db.prepare(
-          "SELECT id FROM matches WHERE offer_id = ? AND id != ? AND status IN ('active', 'invited')"
+          "SELECT id FROM matches WHERE offer_id = ? AND id != ? AND status IN ('pending', 'active')"
         ).all(match.offer_id, matchId);
         for (const om of otherOfferMatches) {
           db.prepare("UPDATE matches SET status = 'cancelled' WHERE id = ?").run(om.id);
-          db.prepare("INSERT INTO messages (id, match_id, sender_id, content, message_type) VALUES (?, ?, ?, ?, 'system')")
-            .run(uuid(), om.id, match.offerer_id, 'Der Platz wurde leider anderweitig vergeben. Viel Glück bei der weiteren Suche!');
         }
       }
 
-      // 4. IMMER: Alle anderen Matches des Suchenden schließen (Suchenden-Exklusivität)
+      // 4. Alle anderen Anfragen des Suchenden canceln (Exklusivität)
       const otherSeekerMatches = db.prepare(
-        "SELECT id FROM matches WHERE seeker_id = ? AND id != ? AND status IN ('active', 'invited')"
-      ).all(userId, matchId);
+        "SELECT id FROM matches WHERE seeker_id = ? AND id != ? AND status IN ('pending', 'active', 'confirmed')"
+      ).all(match.seeker_id, matchId);
       for (const sm of otherSeekerMatches) {
         db.prepare("UPDATE matches SET status = 'cancelled' WHERE id = ?").run(sm.id);
-        db.prepare("INSERT INTO messages (id, match_id, sender_id, content, message_type) VALUES (?, ?, ?, ?, 'system')")
-          .run(uuid(), sm.id, userId, 'Der Suchende hat eine andere Einladung angenommen.');
       }
 
-      // Fix 11: active_mode Update entfernt (toter Code, rolecheck nutzt es nicht)
-
-      return newSeats;
+      // 5. System-Nachricht — Chat öffnet sich jetzt
+      db.prepare(`
+        INSERT INTO messages (id, match_id, sender_id, content, message_type)
+        VALUES (?, ?, ?, 'Platz bestätigt! Ihr könnt jetzt chatten. 🎉', 'system')
+      `).run(uuid(), matchId, userId);
     });
 
-    const newSeats = exclusivityTx();
-
-    // Bestätigungs-Nachricht im bestätigten Chat
-    const seekerProfile = db.prepare('SELECT display_name FROM profiles WHERE user_id = ?').get(userId);
-    db.prepare(`
-      INSERT INTO messages (id, match_id, sender_id, content, message_type)
-      VALUES (?, ?, ?, ?, 'system')
-    `).run(uuid(), matchId, userId, `✅ ${seekerProfile.display_name} hat die Einladung angenommen! Viel Spaß heute Abend!`);
+    confirmTx();
 
     if (_io) leaderboard.broadcast(_io);
 
-    res.json({ message: 'Einladung angenommen!', seatsRemaining: newSeats });
+    res.json({ message: 'Anfrage bestätigt!' });
   } catch (err) {
-    console.error('acceptInvite Fehler:', err);
-    res.status(500).json({ error: 'Annahme fehlgeschlagen' });
+    console.error('confirmMatch Fehler:', err);
+    res.status(500).json({ error: 'Bestätigung fehlgeschlagen' });
   }
+}
+
+// Keine separate Annahme durch Suchenden mehr nötig — Bestätigung durch Anbieter ist final
+function acceptInvite(req, res) {
+  res.json({ message: 'OK' });
 }
 
 // Anbieter lehnt Match ab → Tages-Sperre für das Angebot
@@ -257,7 +203,7 @@ function rejectMatch(req, res) {
     const userId = req.user.id;
 
     const match = db.prepare(
-      "SELECT id, offerer_id, seeker_id, offer_id FROM matches WHERE id = ? AND offerer_id = ? AND status IN ('active', 'invited')"
+      "SELECT id, offerer_id, seeker_id, offer_id FROM matches WHERE id = ? AND offerer_id = ? AND status IN ('pending', 'active', 'invited')"
     ).get(matchId, userId);
 
     if (!match) {
@@ -409,8 +355,8 @@ function inviteSeeker(req, res) {
 
     const matchId = uuid();
     const result = db.prepare(`
-      INSERT OR IGNORE INTO matches (id, offer_id, offerer_id, seeker_id, seats_granted, status)
-      VALUES (?, ?, ?, ?, 1, 'active')
+      INSERT OR IGNORE INTO matches (id, offer_id, offerer_id, seeker_id, seats_granted, status, confirmed_at)
+      VALUES (?, ?, ?, ?, 1, 'confirmed', datetime('now'))
     `).run(matchId, offer.id, offererId, seekerUserId);
 
     let match = null;
@@ -418,7 +364,7 @@ function inviteSeeker(req, res) {
       match = { id: matchId, isNew: true };
       db.prepare(`
         INSERT INTO messages (id, match_id, sender_id, content, message_type)
-        VALUES (?, ?, ?, 'Match! Ihr könnt jetzt chatten.', 'system')
+        VALUES (?, ?, ?, 'Platz bestätigt! Ihr könnt jetzt chatten. 🎉', 'system')
       `).run(uuid(), matchId, offererId);
     }
 

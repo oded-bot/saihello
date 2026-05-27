@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, PlusCircle, Star, TrendingUp, X, Navigation, Map } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import HostProfileModal from '../Leaderboard/HostProfileModal';
@@ -141,6 +141,8 @@ export default function HomeScreen() {
   const [stats, setStats] = useState({ offers: 0, matches: 0 });
   const [pendingInvites, setPendingInvites] = useState(0);
   const [showHeatModal, setShowHeatModal] = useState(false);
+  const location = useLocation();
+  useEffect(() => { setShowHeatModal(false); }, [location.pathname]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [selectedHost, setSelectedHost] = useState(null);
   const [myRank, setMyRank] = useState(null);

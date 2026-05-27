@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Send, Star, CheckCircle, PartyPopper, X, Ban, Camera } from 'lucide-react';
+import { ChevronLeft, Send, Star, CheckCircle, X, Ban, Camera } from 'lucide-react';
 import api from '../../utils/api';
 import useAuthStore from '../../context/authStore';
 import useNotifications from '../../hooks/useNotifications';
@@ -10,18 +10,20 @@ import ImageLightbox from '../Shared/ImageLightbox';
 import AudioBubble from './AudioBubble';
 import AudioRecorder from './AudioRecorder';
 
-export default function ChatScreen() {
-  const { matchId } = useParams();
+export default function ChatScreen({ chatType = 'match' }) {
+  const params = useParams();
+  const id = chatType === 'yesterday' ? params.chatId : params.matchId;
+  const matchId = id; // alias for backward compat
+  const isYesterday = chatType === 'yesterday';
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [messages, setMessages] = useState([]);
   const [matchInfo, setMatchInfo] = useState(null);
+  const [yesterdayPartner, setYesterdayPartner] = useState(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const [inviteMsg, setInviteMsg] = useState('');
-  const [inviteSeats, setInviteSeats] = useState('1');
+  const [confirming, setConfirming] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [messageMenu, setMessageMenu] = useState(null); // {id, content, type, isMe}
@@ -64,14 +66,22 @@ export default function ChatScreen() {
 
   async function loadChat() {
     try {
-      const [matchRes, msgRes] = await Promise.all([
-        api.get(`/matching/matches/${matchId}`),
-        api.get(`/chat/${matchId}/messages`),
-      ]);
-      setMatchInfo(matchRes.data);
-      setMessages(msgRes.data);
-      msgCountRef.current = msgRes.data.length;
-      api.post(`/chat/${matchId}/read`).catch(() => {});
+      if (isYesterday) {
+        const { data } = await api.get(`/yesterday/chats/${id}/messages`);
+        setYesterdayPartner(data.chat?.otherUser || null);
+        setMessages(data.messages || []);
+        msgCountRef.current = (data.messages || []).length;
+        setMatchInfo({ status: 'confirmed' }); // Yesterday chats sind immer offen
+      } else {
+        const [matchRes, msgRes] = await Promise.all([
+          api.get(`/matching/matches/${matchId}`),
+          api.get(`/chat/${matchId}/messages`),
+        ]);
+        setMatchInfo(matchRes.data);
+        setMessages(msgRes.data);
+        msgCountRef.current = msgRes.data.length;
+        api.post(`/chat/${matchId}/read`).catch(() => {});
+      }
       setTimeout(() => scrollToBottom(), 100);
     } catch (err) {
       console.error('Chat laden Fehler:', err);
@@ -82,16 +92,22 @@ export default function ChatScreen() {
 
   async function pollMessages() {
     try {
-      const [msgRes, matchRes] = await Promise.all([
-        api.get(`/chat/${matchId}/messages`),
-        api.get(`/matching/matches/${matchId}`),
-      ]);
-      if (msgRes.data.length !== msgCountRef.current) {
-        setMessages(msgRes.data);
-        // Als gelesen markieren bei neuen Nachrichten
-        api.post(`/chat/${matchId}/read`).catch(() => {});
+      if (isYesterday) {
+        const { data } = await api.get(`/yesterday/chats/${id}/messages`);
+        if ((data.messages || []).length !== msgCountRef.current) {
+          setMessages(data.messages || []);
+        }
+      } else {
+        const [msgRes, matchRes] = await Promise.all([
+          api.get(`/chat/${matchId}/messages`),
+          api.get(`/matching/matches/${matchId}`),
+        ]);
+        if (msgRes.data.length !== msgCountRef.current) {
+          setMessages(msgRes.data);
+          api.post(`/chat/${matchId}/read`).catch(() => {});
+        }
+        setMatchInfo(matchRes.data);
       }
-      setMatchInfo(matchRes.data);
     } catch (err) {}
   }
 
@@ -107,9 +123,14 @@ export default function ChatScreen() {
     setInput('');
     isAtBottomRef.current = true;
     try {
-      await api.post(`/chat/${matchId}/messages`, { content });
-      const { data } = await api.get(`/chat/${matchId}/messages`);
-      setMessages(data);
+      if (isYesterday) {
+        const { data } = await api.post(`/yesterday/chats/${id}/messages`, { content });
+        setMessages(prev => [...prev, data]);
+      } else {
+        await api.post(`/chat/${matchId}/messages`, { content });
+        const { data } = await api.get(`/chat/${matchId}/messages`);
+        setMessages(data);
+      }
     } catch (err) {
       setInput(content);
     } finally {
@@ -213,16 +234,12 @@ export default function ChatScreen() {
     setMessages(data);
   }
 
-  // Einladung senden
-  async function handleSendInvite() {
+  // Anfrage bestätigen
+  async function handleConfirm() {
+    setConfirming(true);
     try {
-      await api.post(`/matching/matches/${matchId}/confirm`, {
-        message: inviteMsg || undefined,
-        seats: parseInt(inviteSeats) || 1,
-      });
-      toast.success(t('inviteSent'));
-      setShowInviteDialog(false);
-      setInviteMsg('');
+      await api.post(`/matching/matches/${matchId}/confirm`);
+      toast.success('Anfrage bestätigt!');
       const [matchRes, msgRes] = await Promise.all([
         api.get(`/matching/matches/${matchId}`),
         api.get(`/chat/${matchId}/messages`),
@@ -233,22 +250,8 @@ export default function ChatScreen() {
       setTimeout(() => scrollToBottom(), 200);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Fehler');
-    }
-  }
-
-  // Einladung annehmen
-  async function handleAcceptInvite() {
-    try {
-      await api.post(`/matching/matches/${matchId}/accept`);
-      toast.success(t('inviteAccepted'));
-      const [matchRes, msgRes] = await Promise.all([
-        api.get(`/matching/matches/${matchId}`),
-        api.get(`/chat/${matchId}/messages`),
-      ]);
-      setMatchInfo(matchRes.data);
-      setMessages(msgRes.data);
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Fehler');
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -265,9 +268,13 @@ export default function ChatScreen() {
   }
 
   const isOfferer = matchInfo?.offerer_id === user?.id;
-  const partnerName = isOfferer ? matchInfo?.seeker_name : matchInfo?.offerer_name;
-  const partnerPhoto = isOfferer ? matchInfo?.seeker_photo : matchInfo?.offerer_photo;
-  const partnerVerified = isOfferer ? matchInfo?.seeker_verified : matchInfo?.offerer_verified;
+  const partnerName = isYesterday
+    ? (yesterdayPartner?.display_name || yesterdayPartner?.displayName)
+    : (isOfferer ? matchInfo?.seeker_name : matchInfo?.offerer_name);
+  const partnerPhoto = isYesterday
+    ? (yesterdayPartner?.photo_1 || yesterdayPartner?.photo)
+    : (isOfferer ? matchInfo?.seeker_photo : matchInfo?.offerer_photo);
+  const partnerVerified = isYesterday ? false : (isOfferer ? matchInfo?.seeker_verified : matchInfo?.offerer_verified);
   const status = matchInfo?.status;
 
   if (loading) {
@@ -306,36 +313,40 @@ export default function ChatScreen() {
             <span className="font-semibold text-gray-900 dark:text-white text-sm truncate">{partnerName}</span>
             {status === 'confirmed' && <CheckCircle size={12} className="text-tinder-green fill-tinder-green shrink-0" />}
           </div>
-          <span className="text-[11px] text-gray-500 dark:text-gray-400">{matchInfo?.tent_name}</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">{isYesterday ? 'About yesterday' : matchInfo?.tent_name}</span>
         </div>
 
-        {/* Anbieter-Buttons */}
-        {isOfferer && status === 'active' && (
+        {/* Anbieter-Buttons für pending/active */}
+        {!isYesterday && isOfferer && (status === 'pending' || status === 'active') && (
           <div className="flex gap-1.5 shrink-0">
             <button
               onClick={handleReject}
               className="w-8 h-8 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center active:scale-90 transition"
-              title="Match ablehnen"
+              title="Anfrage ablehnen"
             >
               <Ban size={14} className="text-red-500" />
             </button>
             <button
-              onClick={() => setShowInviteDialog(true)}
-              className="px-2.5 py-1 tinder-gradient text-white text-[11px] font-bold rounded-full flex items-center gap-1 active:scale-95 transition"
+              onClick={handleConfirm}
+              disabled={confirming}
+              className="px-2.5 py-1 bg-tinder-green text-white text-[11px] font-bold rounded-full flex items-center gap-1 active:scale-95 transition disabled:opacity-50"
             >
-              <PartyPopper size={12} />
-              {t('invite')}
+              <CheckCircle size={12} />
+              Bestätigen
             </button>
           </div>
         )}
-
-        {isOfferer && status === 'invited' && (
-          <span className="text-[10px] text-tinder-orange bg-tinder-orange/10 px-2 py-1 rounded-full font-medium">{t('waiting')}</span>
-        )}
       </div>
 
+      {/* Pending-Banner für Suchenden */}
+      {!isYesterday && !isOfferer && (status === 'pending' || status === 'active') && (
+        <div className="bg-violet-500/10 border-b border-violet-500/20 px-3 py-1.5 flex items-center gap-1.5 shrink-0">
+          <span className="text-violet-400 text-xs font-medium">⏳ Deine Anfrage wurde gesendet — warte auf Bestätigung.</span>
+        </div>
+      )}
+
       {/* Bestätigt-Banner */}
-      {status === 'confirmed' && (
+      {!isYesterday && status === 'confirmed' && (
         <div className="bg-tinder-green/10 border-b border-tinder-green/20 px-3 py-1.5 flex items-center gap-1.5 shrink-0">
           <CheckCircle size={14} className="text-tinder-green" />
           <span className="text-tinder-green text-xs font-medium">{t('inviteAcceptedBanner')}</span>
@@ -362,28 +373,12 @@ export default function ChatScreen() {
           const isImage = msg.message_type === 'image';
           const isAudio = msg.message_type === 'audio';
 
-          // Einladungskarte
+          // Einladungskarte (legacy — für alte Matches)
           if (isInvite) {
             return (
               <div key={msg.id} className="my-3">
                 <div className="bg-gradient-to-br from-tinder-pink/10 to-tinder-orange/10 border-2 border-tinder-pink/20 rounded-2xl p-4 mx-2 shadow-sm">
                   <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line leading-relaxed">{msg.content}</p>
-
-                  {!isOfferer && status === 'invited' && (
-                    <button
-                      onClick={handleAcceptInvite}
-                      className="w-full mt-3 py-2.5 bg-tinder-green text-white font-bold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition shadow-md"
-                    >
-                      <CheckCircle size={18} />
-                      {t('acceptInvite')}
-                    </button>
-                  )}
-
-                  {status === 'confirmed' && (
-                    <div className="mt-3 py-2 bg-tinder-green/10 rounded-xl text-center">
-                      <span className="text-tinder-green text-sm font-medium">{t('accepted')}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             );
@@ -480,8 +475,8 @@ export default function ChatScreen() {
         </div>
       </div>
 
-      {/* Input */}
-      <div className="border-t border-gray-100 dark:border-dark-separator px-3 py-2 shrink-0 bg-white dark:bg-dark-card dark-transition relative" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* Input — nur bei confirmed */}
+      <div className="border-t border-gray-100 dark:border-dark-separator px-3 py-2 shrink-0 bg-white dark:bg-dark-card dark-transition relative" style={{ paddingBottom: 'env(safe-area-inset-bottom)', display: (status === 'pending' || status === 'active') ? 'none' : undefined }}>
         {/* Edit-Modus */}
         {editingMessage ? (
           <div className="flex items-center gap-2">
@@ -582,45 +577,6 @@ export default function ChatScreen() {
         </div>
       )}
 
-      {/* Einladungs-Dialog */}
-      {showInviteDialog && (
-        <div className="fixed inset-0 z-[60] bg-black/50 flex items-end justify-center" onClick={() => setShowInviteDialog(false)}>
-          <div className="max-w-md w-full bg-white dark:bg-dark-card rounded-t-3xl p-6 space-y-4 dark-transition" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('sendInvite')}</h3>
-              <button onClick={() => setShowInviteDialog(false)} className="text-gray-400"><X size={20} /></button>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">{t('howManySeats')}</label>
-              <input
-                type="number" min={1} max={20} value={inviteSeats}
-                onChange={(e) => setInviteSeats(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-dark-elevated border border-gray-200 dark:border-dark-separator rounded-xl text-gray-900 dark:text-white focus:outline-none focus:border-tinder-pink"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">{t('personalMessage')}</label>
-              <textarea
-                value={inviteMsg}
-                onChange={(e) => setInviteMsg(e.target.value)}
-                placeholder={t('personalMessagePlaceholder')}
-                rows={3} maxLength={500}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-dark-elevated border border-gray-200 dark:border-dark-separator rounded-xl text-gray-900 dark:text-white focus:outline-none focus:border-tinder-pink resize-none placeholder-gray-400"
-              />
-            </div>
-
-            <button
-              onClick={handleSendInvite}
-              className="w-full py-3.5 tinder-gradient text-white font-bold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition shadow-lg"
-            >
-              <PartyPopper size={18} />
-              {t('sendInvite')}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Lightbox */}
       {lightboxSrc && (

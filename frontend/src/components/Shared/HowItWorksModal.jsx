@@ -18,36 +18,50 @@ export default function HowItWorksModal({ onClose }) {
           <div className="flex gap-3">
             <span className="text-xl shrink-0">🎉</span>
             <div>
-              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Ich lade ein!</p>
-              <p>Du hast heute Abend was vor und willst Leute dabei haben? Erstelle eine Einladung mit Ort, Datum und Uhrzeit – und finde passende Leute.</p>
+              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Komm' mit! – Platz anbieten</p>
+              <p>Du hast einen reservierten Tisch oder einen freien Platz bei einem Event? Erstelle ein Angebot mit Ort, Datum und Uhrzeit – und finde passende Leute, die mitmachen wollen.</p>
             </div>
           </div>
           <div className="flex gap-3">
             <span className="text-xl shrink-0">🔍</span>
             <div>
-              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Einladung finden</p>
-              <p>Swipe durch Einladungen in deiner Nähe. Gefällt dir ein Angebot, wische nach rechts. Der Gastgeber entscheidet, ob er dich einlädt.</p>
+              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Ich komme dazu! – Platz finden</p>
+              <p>Swipe durch Angebote in deiner Nähe. Gefällt dir eins, tippe auf Herz oder wische nach rechts. Der Anbieter bekommt deine Anfrage und entscheidet, ob er dich bestätigt.</p>
             </div>
           </div>
           <div className="flex gap-3">
             <span className="text-xl shrink-0">✅</span>
             <div>
               <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Match &amp; Chat</p>
-              <p>Nimmst du eine Einladung an, ist der Platz gesichert. Im Chat klärt ihr die Details.</p>
+              <p>Bestätigt der Anbieter deine Anfrage, ist der Platz gesichert und der Chat öffnet sich. Dort klärt ihr alles Weitere – Treffpunkt, Uhrzeit, wie ihr euch erkennt.</p>
             </div>
           </div>
           <div className="flex gap-3">
             <span className="text-xl shrink-0">🎥</span>
             <div>
               <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Life Feed</p>
-              <p>Teile kurze Videos von deiner Feier-Situation und entdecke, was bei anderen gerade los ist.</p>
+              <p>Teile kurze Videos oder Fotos von deiner aktuellen Situation und entdecke, was bei anderen gerade los ist – von Clubs über Restaurants bis zu Events.</p>
             </div>
           </div>
           <div className="flex gap-3">
             <span className="text-xl shrink-0">🔥</span>
             <div>
               <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Where's the heat?</p>
-              <p>Sieh auf der Karte, wo gerade am meisten los ist – basierend auf echten Besucherdaten.</p>
+              <p>Sieh auf der Karte, wo gerade Angebote und Suchende in deiner Nähe sind – und entdecke, wo in der Stadt gerade am meisten los ist.</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-xl shrink-0">💬</span>
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">About Yesterday – Gestrige Begegnungen</p>
+              <p>Hast du gestern jemanden getroffen, mit dem du gerne in Kontakt bleiben würdest? Im "About Yesterday"-Feed kannst du andere User von gestern finden. Ein gegenseitiges Like öffnet den Chat.</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-xl shrink-0">🎯</span>
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-white mb-0.5">Suchprofil anlegen</p>
+              <p>Suchst du für einen bestimmten Termin in der Zukunft? Lege ein Suchprofil an – mit Ort, Datum, Uhrzeit und Kategorie. Deine Suche erscheint als Pin auf der Karte, damit Anbieter in deiner Nähe dich finden können.</p>
             </div>
           </div>
         </div>

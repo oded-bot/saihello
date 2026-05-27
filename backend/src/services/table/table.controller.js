@@ -287,9 +287,23 @@ function discoverOffers(req, res) {
       return res.status(400).json({ error: 'Profil nicht vollständig' });
     }
 
-    const seekerSearch = db.prepare('SELECT location_lat, location_lng FROM seeker_searches WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1').get(userId, 'active');
-    const seekerLat = seekerSearch?.location_lat ?? null;
-    const seekerLng = seekerSearch?.location_lng ?? null;
+    const { lat: queryLat, lng: queryLng } = req.query;
+
+    // Priorität: 1) Aktive Suche  2) Browser-Geo (Query-Params)  3) Letzte Suche (Fallback)
+    const activeSearch = db.prepare('SELECT location_lat, location_lng FROM seeker_searches WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1').get(userId, 'active');
+    let seekerLat = activeSearch?.location_lat ?? null;
+    let seekerLng = activeSearch?.location_lng ?? null;
+
+    if (seekerLat === null && queryLat && queryLng) {
+      seekerLat = parseFloat(queryLat);
+      seekerLng = parseFloat(queryLng);
+    }
+
+    if (seekerLat === null) {
+      const lastSearch = db.prepare('SELECT location_lat, location_lng FROM seeker_searches WHERE user_id = ? ORDER BY created_at DESC LIMIT 1').get(userId);
+      seekerLat = lastSearch?.location_lat ?? null;
+      seekerLng = lastSearch?.location_lng ?? null;
+    }
 
     let query = `
       SELECT o.id, o.total_seats, o.available_seats, o.date, o.time_from, o.time_until,

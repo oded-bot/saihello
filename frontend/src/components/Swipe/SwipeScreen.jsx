@@ -548,14 +548,28 @@ export default function SwipeScreen() {
   const [showSeekerWizard, setShowSeekerWizard] = useState(false);
   const [seekerLoading, setSeekerLoading] = useState(false);
   const pollRef = useRef(null);
+  const geoFallbackRef = useRef(null);
   const { t } = useLanguage();
 
   useEffect(() => {
-    loadOffers();
+    initWithGeo();
     loadActiveSearch();
     pollRef.current = setInterval(refreshOffers, 10000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
+
+  function initWithGeo() {
+    if (!navigator.geolocation) { loadOffers(); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        geoFallbackRef.current = coords;
+        loadOffers(undefined, coords);
+      },
+      () => loadOffers(),
+      { timeout: 4000, maximumAge: 120000 }
+    );
+  }
 
   async function loadActiveSearch() {
     try {
@@ -601,7 +615,7 @@ export default function SwipeScreen() {
     }
   }
 
-  function buildQuery(overrideCategory) {
+  function buildQuery(overrideCategory, geoCoords) {
     const params = new URLSearchParams();
     if (ageFilter.min) params.set('ageMin', ageFilter.min);
     if (ageFilter.max) params.set('ageMax', ageFilter.max);
@@ -619,13 +633,14 @@ export default function SwipeScreen() {
     if (searchFilter.timeUntil) params.set('timeUntil', searchFilter.timeUntil);
     const cat = overrideCategory !== undefined ? overrideCategory : categoryFilter;
     if (cat && cat !== 'alle') params.set('category', cat);
+    if (geoCoords?.lat != null) { params.set('lat', geoCoords.lat); params.set('lng', geoCoords.lng); }
     return params.toString() ? `?${params.toString()}` : '';
   }
 
-  async function loadOffers(overrideCategory) {
+  async function loadOffers(overrideCategory, geoCoords) {
     try {
       setLoading(true);
-      const queryStr = buildQuery(overrideCategory);
+      const queryStr = buildQuery(overrideCategory, geoCoords);
       const { data } = await api.get(`/tables/discover${queryStr}`);
       setOffers(data);
       setCurrentIdx(0);
@@ -645,7 +660,7 @@ export default function SwipeScreen() {
 
   async function refreshOffers() {
     try {
-      const { data } = await api.get(`/tables/discover${buildQuery(undefined)}`);
+      const { data } = await api.get(`/tables/discover${buildQuery(undefined, geoFallbackRef.current)}`);
       if (data.length > offers.length - currentIdx) {
         setOffers(data);
         setCurrentIdx(0);
@@ -660,19 +675,13 @@ export default function SwipeScreen() {
     if (!offer) return;
 
     try {
-      const { data } = await api.post('/matching/swipe', {
-        offerId: offer.id,
-        direction,
-      });
-
-      if (data.match?.isNew) {
-        setShowMatch(offer);
-        setTimeout(() => setShowMatch(null), 3000);
+      await api.post('/matching/swipe', { offerId: offer.id, direction });
+      if (direction === 'like') {
+        toast.success('Anfrage gesendet!');
       }
     } catch (err) {
       if (err.response?.status === 403) {
         toast.error(err.response.data.error || t('error'));
-        return;
       }
     }
 
@@ -771,9 +780,12 @@ export default function SwipeScreen() {
   return (
     <div className="px-3 pt-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('discover')}</h1>
-        <div className="flex gap-2">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('discover')}</h1>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Aktuelle Angebote in deiner Nähe</p>
+        </div>
+        <div className="flex gap-2 mt-0.5">
           <button onClick={() => setShowSearchOverlay(true)} className={`w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition ${searchApplied ? 'tinder-gradient text-white' : 'bg-gray-100 dark:bg-dark-card text-gray-500'}`}>
             <Search size={16} />
           </button>
@@ -813,19 +825,27 @@ export default function SwipeScreen() {
           </div>
         </div>
       ) : (
-        <div className="bg-dark-elevated/50 border border-white/10 rounded-2xl px-4 py-3 mb-3 flex items-center justify-between">
-          <p className="text-sm text-white/40">{t('noSearchActive')}</p>
-          <button
-            onClick={() => setShowSeekerWizard(true)}
-            className="text-xs text-app-violet font-semibold"
-          >
-            {t('startSearch')}
-          </button>
+        <div className="bg-dark-elevated/50 border border-white/10 rounded-2xl px-4 py-3 mb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-white/40">{t('noSearchActive')}</p>
+              <p className="text-xs text-white/25 mt-0.5">{t('noSearchActiveHint')}</p>
+            </div>
+            <button
+              onClick={() => setShowSeekerWizard(true)}
+              className="shrink-0 px-3 py-1.5 rounded-full text-xs text-white font-semibold"
+              style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
+            >
+              {t('startSearch')}
+            </button>
+          </div>
         </div>
       )}
 
       {/* Kategorie-Filter Chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 mb-3 no-scrollbar">
+      <div className="relative mb-3">
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar pr-8">
+
         {[
           { key: 'alle', label: t('categoryAll') },
           { key: 'clubs', label: '🎵 ' + t('categoryClubs') },
@@ -848,6 +868,9 @@ export default function SwipeScreen() {
             {label}
           </button>
         ))}
+        </div>
+        {/* Fade-Indikator rechts */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-dark-bg to-transparent" />
       </div>
 
       {/* Altersfilter */}
@@ -951,9 +974,12 @@ export default function SwipeScreen() {
             className="bg-white dark:bg-dark-card w-full max-w-lg rounded-t-3xl p-6 pb-24 max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('searchFilter')}</h3>
-              <button onClick={() => setShowSearchOverlay(false)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-dark-elevated flex items-center justify-center">
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('searchFilter')}</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Aktuelle Angebote im Feed einschränken</p>
+              </div>
+              <button onClick={() => setShowSearchOverlay(false)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-dark-elevated flex items-center justify-center shrink-0 mt-0.5">
                 <X size={16} className="text-gray-500" />
               </button>
             </div>

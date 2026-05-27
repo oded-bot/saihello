@@ -212,12 +212,10 @@ export default function App() {
             </ProtectedRoute>
           } />
         )}
-        {FEATURES.yesterday && YesterdayChatScreen && (
+        {FEATURES.yesterday && (
           <Route path="/yesterday/chat/:chatId" element={
             <ProtectedRoute>
-              <React.Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="text-gray-400">Laden...</span></div>}>
-                <YesterdayChatScreen />
-              </React.Suspense>
+              <ChatScreen chatType="yesterday" />
             </ProtectedRoute>
           } />
         )}
