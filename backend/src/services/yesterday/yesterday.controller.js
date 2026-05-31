@@ -7,6 +7,17 @@ const { sendPushToUser } = require('../../utils/sendPush');
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '../../../uploads');
 
+const TIER1_RADIUS_M = 1000;
+const TIER2_RADIUS_M = 10000;
+const MIN_TIER1_SIZE = 5;
+
+// Bounding-Box-Approx für SQL (wird durch Haversine nachgefiltert)
+const T1_DEG_LAT = 0.009;   // ~1km
+const T1_DEG_LNG = 0.013;
+const T2_DEG_LAT = 0.09;    // ~10km
+const T2_DEG_LNG = 0.13;
+
+// Legacy-Alias für wasUserActiveNear (300m)
 const RADIUS_M = 300;
 const RADIUS_DEG_LAT = 0.0027;
 const RADIUS_DEG_LNG = 0.00375;
@@ -122,23 +133,19 @@ function getFeed(req, res) {
 
     if (myPins.length === 0) return res.json([]);
 
-    const feedMap = new Map();
+    // Bereits interagierte User ausschließen
+    const acted = new Set(
+      db.prepare('SELECT subject_id FROM yesterday_feed_actions WHERE actor_id = ?')
+        .all(userId).map(r => r.subject_id)
+    );
+
+    const tier1Map = new Map();
+    const tier2Map = new Map();
 
     for (const myPin of myPins) {
       const { lat, lng } = myPin;
 
-      const nearbyPins = db.prepare(`
-        SELECT yp.user_id, yp.lat, yp.lng,
-               p.display_name, p.photo_1, p.photo_2, p.emoji, p.age, p.gender, p.bio
-        FROM yesterday_pins yp
-        JOIN profiles p ON p.user_id = yp.user_id
-        WHERE yp.user_id != ?
-          AND yp.lat BETWEEN ? AND ?
-          AND yp.lng BETWEEN ? AND ?
-          AND yp.created_at >= datetime('now', '-7 days')
-      `).all(userId, lat - RADIUS_DEG_LAT, lat + RADIUS_DEG_LAT, lng - RADIUS_DEG_LNG, lng + RADIUS_DEG_LNG);
-
-      // Location-Label aus eigener Aktivität an diesem Pin
+      // Ort-Label aus eigener Aktivität an diesem Pin
       const ownActivity = db.prepare(`
         SELECT location_text FROM table_offers
         WHERE user_id = ? AND location_lat BETWEEN ? AND ? AND location_lng BETWEEN ? AND ?
@@ -149,36 +156,66 @@ function getFeed(req, res) {
           AND date >= date('now', '-7 days') AND location_text IS NOT NULL
         LIMIT 1
       `).get(
-        userId, lat - RADIUS_DEG_LAT, lat + RADIUS_DEG_LAT, lng - RADIUS_DEG_LNG, lng + RADIUS_DEG_LNG,
-        userId, lat - RADIUS_DEG_LAT, lat + RADIUS_DEG_LAT, lng - RADIUS_DEG_LNG, lng + RADIUS_DEG_LNG,
+        userId, lat - T1_DEG_LAT, lat + T1_DEG_LAT, lng - T1_DEG_LNG, lng + T1_DEG_LNG,
+        userId, lat - T1_DEG_LAT, lat + T1_DEG_LAT, lng - T1_DEG_LNG, lng + T1_DEG_LNG,
       );
       const sharedLocation = ownActivity?.location_text || null;
 
-      for (const pin of nearbyPins) {
-        if (haversine(lat, lng, pin.lat, pin.lng) > RADIUS_M) continue;
-        if (feedMap.has(pin.user_id)) continue;
+      // Tier 1: bis 1km — "Gleicher Ort"
+      const nearT1 = db.prepare(`
+        SELECT yp.user_id, yp.lat, yp.lng,
+               p.display_name, p.photo_1, p.photo_2, p.emoji, p.age, p.gender, p.bio
+        FROM yesterday_pins yp
+        JOIN profiles p ON p.user_id = yp.user_id
+        WHERE yp.user_id != ?
+          AND yp.lat BETWEEN ? AND ?
+          AND yp.lng BETWEEN ? AND ?
+          AND yp.created_at >= datetime('now', '-7 days')
+      `).all(userId, lat - T1_DEG_LAT, lat + T1_DEG_LAT, lng - T1_DEG_LNG, lng + T1_DEG_LNG);
 
-        const action = db.prepare(
-          'SELECT action FROM yesterday_feed_actions WHERE actor_id = ? AND subject_id = ?'
-        ).get(userId, pin.user_id);
-        if (action) continue;
-
+      for (const pin of nearT1) {
+        if (haversine(lat, lng, pin.lat, pin.lng) > TIER1_RADIUS_M) continue;
+        if (tier1Map.has(pin.user_id) || acted.has(pin.user_id)) continue;
         if (!wasUserActiveNear(pin.user_id, lat, lng)) continue;
-
-        feedMap.set(pin.user_id, {
-          userId: pin.user_id,
-          displayName: pin.display_name,
-          photo: pin.photo_1 || pin.photo_2,
-          emoji: pin.emoji,
-          age: pin.age,
-          gender: pin.gender,
-          bio: pin.bio,
-          sharedLocation,
+        tier1Map.set(pin.user_id, {
+          userId: pin.user_id, displayName: pin.display_name,
+          photo: pin.photo_1 || pin.photo_2, emoji: pin.emoji,
+          age: pin.age, gender: pin.gender, bio: pin.bio,
+          sharedLocation, tier: 1,
         });
       }
     }
 
-    res.json([...feedMap.values()]);
+    // Tier 2: bis 10km — nur wenn Tier 1 unter Schwellwert
+    if (tier1Map.size < MIN_TIER1_SIZE) {
+      for (const myPin of myPins) {
+        const { lat, lng } = myPin;
+
+        const nearT2 = db.prepare(`
+          SELECT yp.user_id, yp.lat, yp.lng,
+                 p.display_name, p.photo_1, p.photo_2, p.emoji, p.age, p.gender, p.bio
+          FROM yesterday_pins yp
+          JOIN profiles p ON p.user_id = yp.user_id
+          WHERE yp.user_id != ?
+            AND yp.lat BETWEEN ? AND ?
+            AND yp.lng BETWEEN ? AND ?
+            AND yp.created_at >= datetime('now', '-7 days')
+        `).all(userId, lat - T2_DEG_LAT, lat + T2_DEG_LAT, lng - T2_DEG_LNG, lng + T2_DEG_LNG);
+
+        for (const pin of nearT2) {
+          if (haversine(lat, lng, pin.lat, pin.lng) > TIER2_RADIUS_M) continue;
+          if (tier1Map.has(pin.user_id) || tier2Map.has(pin.user_id) || acted.has(pin.user_id)) continue;
+          tier2Map.set(pin.user_id, {
+            userId: pin.user_id, displayName: pin.display_name,
+            photo: pin.photo_1 || pin.photo_2, emoji: pin.emoji,
+            age: pin.age, gender: pin.gender, bio: pin.bio,
+            sharedLocation: null, tier: 2,
+          });
+        }
+      }
+    }
+
+    res.json([...tier1Map.values(), ...tier2Map.values()]);
   } catch (err) {
     console.error('getFeed Fehler:', err);
     res.status(500).json({ error: 'Feed laden fehlgeschlagen' });
@@ -280,7 +317,9 @@ function getRequests(req, res) {
       FROM yesterday_requests yr
       JOIN profiles p1 ON p1.user_id = yr.user1_id
       JOIN profiles p2 ON p2.user_id = yr.user2_id
-      WHERE (yr.user1_id = ? OR yr.user2_id = ?) AND yr.status != 'rejected'
+      WHERE (yr.user1_id = ? OR yr.user2_id = ?)
+        AND yr.status != 'rejected'
+        AND NOT (yr.status = 'accepted' AND yr.created_at < datetime('now', '-1 day'))
       ORDER BY yr.created_at DESC
     `).all(userId, userId);
 

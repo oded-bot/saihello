@@ -11,6 +11,7 @@ function getTop10() {
     JOIN profiles p ON p.user_id = u.id
     LEFT JOIN matches m ON (m.offerer_id = u.id OR m.seeker_id = u.id)
       AND m.status = 'confirmed'
+    WHERE p.top10_public = 1
     GROUP BY u.id
     HAVING confirmed_matches > 0
     ORDER BY confirmed_matches DESC
@@ -27,7 +28,7 @@ function broadcast(io) {
     if (!prevIds.has(entry.id)) {
       db.prepare(`
         INSERT INTO notifications (id, user_id, type, title, body, data)
-        VALUES (?, ?, 'top10_entry', 'Du bist in den Top 10! 🏆', 'Möchtest du dein Profil für andere sichtbar machen?', '{"action":"top10_optin"}')
+        VALUES (?, ?, 'top10_entry', 'Du hast die Top 10 erreicht! 🏆', 'Möchtest du namentlich im Leaderboard erscheinen? Du entscheidest – jederzeit widerrufbar im Profil.', '{"action":"top10_optin"}')
       `).run(uuidv4(), entry.id);
     }
   });

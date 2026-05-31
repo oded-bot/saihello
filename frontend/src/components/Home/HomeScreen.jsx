@@ -232,40 +232,32 @@ export default function HomeScreen() {
       {/* Action Cards */}
       <div className="space-y-3">
 
-        <div className="flex gap-3">
-          {/* About yesterday */}
-          {FEATURES.yesterday && (
-            <button
-              onClick={() => navigate('/yesterday')}
-              className="rounded-2xl flex items-center justify-center active:scale-95 transition-transform shrink-0"
-              style={{ background: 'linear-gradient(180deg, #166534 0%, #4ADE80 35%, #15803D 50%, #86EFAC 70%, #166534 100%)', width: '52px' }}
-            >
-              <span
-                className="text-white font-bold text-xs tracking-widest select-none"
-                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.12em' }}
-              >
-                About yesterday
-              </span>
-            </button>
-          )}
-
-          <div className="flex-1 flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
 
             {/* Platz anbieten + Platz finden: gleiche Höhe via Grid */}
             <div className="grid gap-3" style={{ gridTemplateRows: '1fr 1fr' }}>
 
             {/* Platz anbieten */}
             <div
-              onClick={() => navigate('/offer')}
-              className="w-full h-full rounded-2xl p-5 flex items-center gap-4 min-h-[100px] cursor-pointer active:scale-95 transition-transform"
+              className="w-full h-full rounded-2xl p-5 flex items-center gap-4 min-h-[100px]"
               style={{ background: 'linear-gradient(135deg, #374151 0%, #9CA3AF 40%, #D1D5DB 52%, #9CA3AF 65%, #374151 100%)' }}
             >
-              <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+              <div
+                onClick={() => navigate('/discover', { state: { mode: 'offer' } })}
+                className="w-11 h-11 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition"
+              >
                 <PlusCircle size={22} className="text-white" />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate('/discover', { state: { mode: 'offer' } })}>
                 <h3 className="text-base font-bold text-white">{t('offerPlace')}</h3>
                 <p className="text-white/60 text-xs">{t('offerPlaceDesc')}</p>
+              </div>
+              <div
+                onClick={() => navigate('/map', { state: { mode: 'offer' } })}
+                className="shrink-0 flex flex-col items-center gap-1 bg-black/20 hover:bg-black/30 rounded-xl px-3 py-2 transition cursor-pointer active:scale-90"
+              >
+                <Map size={16} className="text-white/80" />
+                <span className="text-[10px] text-white/70 font-medium">Karte</span>
               </div>
             </div>
 
@@ -305,29 +297,28 @@ export default function HomeScreen() {
               </div>
               <div>
                 <h3 className="text-base font-bold text-white">Wo ist was los?</h3>
-                <p className="text-white/60 text-xs">Zeig mir die heiße Zone</p>
+                <p className="text-white/60 text-xs">Finde die Hotspots in deiner Nähe</p>
               </div>
             </button>
 
-            {/* Life Feed */}
-            {FEATURES.lifeFeed && (
+            {/* About Yesterday */}
+            {FEATURES.yesterday && (
               <button
-                onClick={() => navigate('/feed')}
+                onClick={() => navigate('/yesterday')}
                 className="w-full rounded-2xl p-5 text-left flex items-center gap-4 active:scale-[0.98] transition"
-                style={{ background: 'linear-gradient(135deg, #7F1D1D 0%, #B91C1C 35%, #F87171 52%, #B91C1C 70%, #7F1D1D 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #166534 0%, #16A34A 35%, #4ADE80 52%, #16A34A 70%, #166534 100%)' }}
               >
                 <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
-                  <span className="text-xl">🎥</span>
+                  <span className="text-xl">💬</span>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Life Feed</h3>
-                  <p className="text-white/60 text-xs">Aktuelle Momente entdecken</p>
+                  <h3 className="text-base font-bold text-white">About Yesterday</h3>
+                  <p className="text-white/60 text-xs">Wen hast du gestern verpasst?</p>
                 </div>
               </button>
             )}
 
           </div>
-        </div>
       </div>
 
       {showHeatModal && (

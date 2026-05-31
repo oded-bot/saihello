@@ -129,7 +129,7 @@ async function getMe(req, res) {
       SELECT u.id, u.username, u.created_at, u.is_admin, u.is_approved,
              p.display_name, p.bio, p.age, p.gender,
              p.photo_1, p.photo_2, p.photo_3, p.photo_4, p.photo_5, p.photo_6,
-             p.is_verified, p.rating, p.total_ratings, p.emoji, p.badges
+             p.is_verified, p.rating, p.total_ratings, p.emoji, p.badges, p.top10_public
       FROM users u
       LEFT JOIN profiles p ON p.user_id = u.id
       WHERE u.id = ?
@@ -154,6 +154,7 @@ async function getMe(req, res) {
       totalRatings: u.total_ratings,
       emoji: u.emoji || null,
       badges: u.badges ? JSON.parse(u.badges) : [],
+      top10Public: !!u.top10_public,
       createdAt: u.created_at,
     });
   } catch (err) {

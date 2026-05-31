@@ -56,11 +56,6 @@ const HowsMyStyleScreen = FEATURES.howsMyStyle
   ? React.lazy(() => import('./components/Style/HowsMyStyleScreen'))
   : null;
 
-// Life Feed
-const LifeFeedScreen = FEATURES.lifeFeed
-  ? React.lazy(() => import('./components/Feed/LifeFeedScreen'))
-  : null;
-
 // About Yesterday
 const YesterdayScreen = FEATURES.yesterday
   ? React.lazy(() => import('./components/Yesterday/YesterdayScreen'))
@@ -117,7 +112,8 @@ export default function App() {
   const hideNav = !token
     || pathname.startsWith('/admin')
     || /^\/chat\/.+/.test(pathname)
-    || pathname === '/feed';
+    || pathname === '/yesterday'
+    || pathname.startsWith('/yesterday/');
 
   return (
     <div className="bg-black min-h-screen dark-transition">
@@ -190,17 +186,6 @@ export default function App() {
             </MapErrorBoundary>
           </ProtectedRoute>
         } />
-
-        {/* Life Feed */}
-        {FEATURES.lifeFeed && LifeFeedScreen && (
-          <Route path="/feed" element={
-            <ProtectedRoute>
-              <React.Suspense fallback={<div className="flex items-center justify-center h-screen bg-black"><span className="text-gray-400">Laden...</span></div>}>
-                <LifeFeedScreen />
-              </React.Suspense>
-            </ProtectedRoute>
-          } />
-        )}
 
         {/* About Yesterday */}
         {FEATURES.yesterday && YesterdayScreen && (

@@ -380,7 +380,7 @@ function getSeekerFeed(req, res) {
 
     const searches = db.prepare(`
       SELECT s.id, s.user_id, s.location_lat, s.location_lng, s.location_text,
-             s.date, s.time_from, s.time_until, s.seats_needed,
+             s.date, s.time_from, s.time_until, s.seats_needed, s.category,
              s.preferred_genders, s.preferred_age_min, s.preferred_age_max,
              p.display_name, p.age as seeker_age, p.gender as seeker_gender,
              p.photo_1, p.is_verified, p.bio, p.rating, p.emoji as seeker_emoji, p.badges as seeker_badges
@@ -421,6 +421,7 @@ function getSeekerFeed(req, res) {
         timeFrom: s.time_from,
         timeUntil: s.time_until,
         seatsNeeded: s.seats_needed,
+        category: s.category || null,
         distanceKm: distKm != null ? Math.round(distKm * 10) / 10 : null,
         profile: {
           displayName: s.display_name,

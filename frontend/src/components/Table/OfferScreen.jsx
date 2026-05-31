@@ -815,7 +815,7 @@ export default function OfferScreen() {
             <p className="text-white/60 text-sm mb-7 leading-relaxed">Möchtest du sehen, wer in deiner Nähe gerade einen Platz sucht?</p>
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => { setMapModal(null); navigate('/map', { state: { lat: mapModal.lat || undefined, lng: mapModal.lng || undefined } }); }}
+                onClick={() => { setMapModal(null); navigate('/map', { state: { mode: 'offer', lat: mapModal.lat || undefined, lng: mapModal.lng || undefined } }); }}
                 className="w-full py-3.5 rounded-xl text-white font-bold text-sm"
                 style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
               >

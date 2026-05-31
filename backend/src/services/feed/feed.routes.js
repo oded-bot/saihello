@@ -35,7 +35,7 @@ router.get('/', authMiddleware, getFeed);
 router.post('/upload', authMiddleware, videoUpload.single('video'), uploadVideo);
 router.post('/:videoId/like', authMiddleware, toggleLike);
 router.get('/:videoId/comments', authMiddleware, getComments);
-router.post('/:videoId/comment', authMiddleware, addComment);
+router.post('/:videoId/comments', authMiddleware, addComment);
 router.delete('/:videoId', authMiddleware, deleteVideo);
 
 module.exports = router;

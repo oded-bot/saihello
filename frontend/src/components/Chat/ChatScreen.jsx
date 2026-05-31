@@ -340,8 +340,25 @@ export default function ChatScreen({ chatType = 'match' }) {
 
       {/* Pending-Banner für Suchenden */}
       {!isYesterday && !isOfferer && (status === 'pending' || status === 'active') && (
-        <div className="bg-violet-500/10 border-b border-violet-500/20 px-3 py-1.5 flex items-center gap-1.5 shrink-0">
-          <span className="text-violet-400 text-xs font-medium">⏳ Deine Anfrage wurde gesendet — warte auf Bestätigung.</span>
+        <div className="bg-violet-500/10 border-b border-violet-500/20 px-3 py-2 shrink-0">
+          <p className="text-violet-400 text-xs font-medium">💛 Like raus! Wenn {partnerName} zurückliked, könnt ihr chatten.</p>
+          {matchInfo?.expires_at && (
+            <p className="text-violet-400/60 text-[11px] mt-0.5">
+              Keine Reaktion bis {new Date(matchInfo.expires_at).toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}? Kein Drama — läuft dann automatisch ab.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Pending-Banner für Anbieter */}
+      {!isYesterday && isOfferer && (status === 'pending' || status === 'active') && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-3 py-2 shrink-0">
+          <p className="text-amber-400 text-xs font-medium">💛 {partnerName} hat dein Angebot geliked — magst du zurückliken?</p>
+          {matchInfo?.expires_at && (
+            <p className="text-amber-400/60 text-[11px] mt-0.5">
+              Kein Interesse? Einfach ignorieren — läuft automatisch ab am {new Date(matchInfo.expires_at).toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. Danach kein Kontakt mehr möglich.
+            </p>
+          )}
         </div>
       )}
 

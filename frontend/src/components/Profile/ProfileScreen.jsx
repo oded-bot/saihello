@@ -24,6 +24,8 @@ export default function ProfileScreen() {
   const [currentEmoji, setCurrentEmoji] = useState(null);
   const [myBadges, setMyBadges] = useState([]);
   const [myRank, setMyRank] = useState(null);
+  const [leaderboardOptIn, setLeaderboardOptIn] = useState(false);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
 
   const EMOJIS = [
     '😀','😎','🤩','😍','🥳','🤠','🎭','👑',
@@ -45,6 +47,7 @@ export default function ProfileScreen() {
       setProfile(data);
       setForm({ displayName: data.displayName, bio: data.bio || '', age: data.age?.toString() || '' });
       setCurrentEmoji(data.emoji || null);
+      setLeaderboardOptIn(!!data.top10Public);
     } catch (err) {
       // stille
     }
@@ -114,6 +117,21 @@ export default function ProfileScreen() {
       toast.success('Badges gespeichert');
     } catch {
       toast.error('Speichern fehlgeschlagen');
+    }
+  }
+
+  async function toggleLeaderboard() {
+    if (leaderboardLoading) return;
+    setLeaderboardLoading(true);
+    const newVal = !leaderboardOptIn;
+    try {
+      await api.post(newVal ? '/hosts/optin' : '/hosts/optout');
+      setLeaderboardOptIn(newVal);
+      toast.success(newVal ? 'Du erscheinst jetzt im Leaderboard.' : 'Du wurdest aus dem Leaderboard entfernt.');
+    } catch {
+      toast.error('Änderung fehlgeschlagen');
+    } finally {
+      setLeaderboardLoading(false);
     }
   }
 
@@ -418,6 +436,29 @@ export default function ProfileScreen() {
           </button>
         ))}
       </div>
+
+      {/* Leaderboard-Einwilligung — nur sichtbar wenn User in Top 10 */}
+      {myRank && myRank.rank <= 10 && myRank.matches > 0 && (
+        <div className="mt-4 bg-gray-50 dark:bg-dark-card rounded-2xl p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">🏆 Leaderboard-Sichtbarkeit</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 leading-relaxed">
+                {leaderboardOptIn
+                  ? 'Du erscheinst namentlich mit Foto im Leaderboard auf der Startseite. Du kannst jederzeit widersprechen.'
+                  : 'Du bist in den Top 10. Dein Name und Foto erscheinen erst dann im Leaderboard, wenn du ausdrücklich zustimmst (Art. 7 DSGVO).'}
+              </p>
+            </div>
+            <button
+              onClick={toggleLeaderboard}
+              disabled={leaderboardLoading}
+              className={`shrink-0 w-11 h-6 rounded-full transition-colors flex items-center disabled:opacity-50 ${leaderboardOptIn ? 'bg-tinder-pink justify-end' : 'bg-gray-300 dark:bg-dark-separator justify-start'}`}
+            >
+              <div className="w-5 h-5 bg-white rounded-full shadow mx-0.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Rechtliches */}
       <div className="mt-6">

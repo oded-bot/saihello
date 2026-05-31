@@ -20,7 +20,7 @@ function swipe(req, res) {
     }
 
     const offer = db.prepare(
-      "SELECT id, user_id, available_seats FROM table_offers WHERE id = ? AND status = 'active'"
+      "SELECT id, user_id, available_seats, date, time_until FROM table_offers WHERE id = ? AND status = 'active'"
     ).get(offerId);
 
     if (!offer) {
@@ -29,6 +29,11 @@ function swipe(req, res) {
     if (offer.user_id === userId) {
       return res.status(400).json({ error: 'Eigenes Angebot' });
     }
+
+    // Ablaufzeit: Ende des Angebots-Zeitfensters, oder +2h falls kein Zeitfenster
+    const expiresAt = (offer.date && offer.time_until)
+      ? `${offer.date} ${offer.time_until}`
+      : new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 19);
 
     // Swipe speichern (upsert)
     db.prepare(`
@@ -42,9 +47,9 @@ function swipe(req, res) {
     if (direction === 'like') {
       const matchId = uuid();
       const result = db.prepare(`
-        INSERT OR IGNORE INTO matches (id, offer_id, offerer_id, seeker_id, seats_granted, status)
-        VALUES (?, ?, ?, ?, 1, 'pending')
-      `).run(matchId, offerId, offer.user_id, userId);
+        INSERT OR IGNORE INTO matches (id, offer_id, offerer_id, seeker_id, seats_granted, status, expires_at)
+        VALUES (?, ?, ?, ?, 1, 'pending', ?)
+      `).run(matchId, offerId, offer.user_id, userId, expiresAt);
 
       if (result.changes > 0) {
         match = { id: matchId, isNew: true };
@@ -62,8 +67,16 @@ function getMatches(req, res) {
   try {
     const userId = req.user.id;
 
+    // Abgelaufene ausstehende Anfragen stillschweigend löschen
+    db.prepare(`
+      DELETE FROM matches
+      WHERE status IN ('pending', 'active')
+        AND expires_at IS NOT NULL
+        AND expires_at < datetime('now')
+    `).run();
+
     const matches = db.prepare(`
-      SELECT m.id, m.offer_id, m.seats_granted, m.status, m.created_at,
+      SELECT m.id, m.offer_id, m.seats_granted, m.status, m.created_at, m.expires_at,
              m.offerer_id, m.seeker_id,
              o.date, o.time_from, o.time_until, o.location_text,
              CASE WHEN m.offerer_id = ? THEN sp.display_name ELSE op.display_name END as partner_name,

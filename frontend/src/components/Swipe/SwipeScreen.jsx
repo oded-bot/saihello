@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { MapPin, Clock, Users, Star, X, Heart, Flame, Filter, RefreshCw, PlusCircle, ChevronDown, Search } from 'lucide-react';
 import api from '../../utils/api';
@@ -66,8 +67,8 @@ function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
           <div className="card-gradient absolute inset-0 pointer-events-none" />
         </div>
 
-        {/* Kategorie-Badge */}
-        {offer.category && offer.category !== 'sonstiges' && (() => {
+        {/* Kategorie-Badge — nur für Angebots-Karten */}
+        {!offer._isSeeker && offer.category && offer.category !== 'sonstiges' && (() => {
           const map = { clubs: '🎵 Club', restaurants: '🍽️ Restaurant & Bar', kultur: '🎭 Kultur', konzert: '🎤 Konzert', sport_aktiv: '🏃 Sport (aktiv)', sport_event: '🏟️ Sport (Ereignis)' };
           const label = map[offer.category];
           if (!label) return null;
@@ -118,12 +119,16 @@ function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
             </div>
             <div className="flex items-center gap-1">
               <Users size={12} />
-              <span>
-                {offer.available_seats} {t('free')}
-                {offer.seats_for_women > 0 && ` · ${offer.seats_for_women}♀`}
-                {offer.seats_for_men > 0 && ` · ${offer.seats_for_men}♂`}
-                {offer.seats_any_gender > 0 && ` · ${offer.seats_any_gender} ${t('anyGender')}`}
-              </span>
+              {offer._isSeeker ? (
+                <span>Sucht {offer.available_seats} Platz/Plätze</span>
+              ) : (
+                <span>
+                  {offer.available_seats} {t('free')}
+                  {offer.seats_for_women > 0 && ` · ${offer.seats_for_women}♀`}
+                  {offer.seats_for_men > 0 && ` · ${offer.seats_for_men}♂`}
+                  {offer.seats_any_gender > 0 && ` · ${offer.seats_any_gender} ${t('anyGender')}`}
+                </span>
+              )}
             </div>
           </div>
 
@@ -162,7 +167,7 @@ function SwipeCard({ offer, onSwipe, isTop, onImageTap }) {
             <p className="text-white/70 text-sm mt-2 line-clamp-2">{offer.group_description}</p>
           )}
 
-          {offer.price_per_seat > 0 && (
+          {!offer._isSeeker && offer.price_per_seat > 0 && (
             <div className="inline-block bg-tinder-yellow/20 text-tinder-yellow px-3 py-1 rounded-full text-sm font-semibold mt-2">
               {parseFloat(offer.price_per_seat).toFixed(0)}{t('seatPrice')}
             </div>
@@ -524,7 +529,12 @@ function SeekerWizard({ onClose, onActivate, loading }) {
 }
 
 export default function SwipeScreen() {
+  const location = useLocation();
+  const isHostMode = location.state?.mode === 'offer';
+
   const [offers, setOffers] = useState([]);
+  const [allSeekers, setAllSeekers] = useState([]);
+  const [hostCategoryFilter, setHostCategoryFilter] = useState('alle');
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showMatch, setShowMatch] = useState(null);
@@ -545,18 +555,64 @@ export default function SwipeScreen() {
   const [conflictingOffer, setConflictingOffer] = useState(null);
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [activeSearch, setActiveSearch] = useState(null);
+  const [activeOffer, setActiveOffer] = useState(null);
   const [showSeekerWizard, setShowSeekerWizard] = useState(false);
   const [seekerLoading, setSeekerLoading] = useState(false);
   const pollRef = useRef(null);
   const geoFallbackRef = useRef(null);
   const { t } = useLanguage();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    initWithGeo();
-    loadActiveSearch();
-    pollRef.current = setInterval(refreshOffers, 10000);
+    if (isHostMode) {
+      loadSeekers();
+    } else {
+      initWithGeo();
+      loadActiveSearch();
+      pollRef.current = setInterval(refreshOffers, 10000);
+    }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
+
+  async function loadSeekers() {
+    setLoading(true);
+    try {
+      const [seekerRes, offerRes] = await Promise.allSettled([
+        api.get('/map/seeker-feed'),
+        api.get('/tables/offers/mine'),
+      ]);
+      const myOffers = offerRes.status === 'fulfilled' ? offerRes.value.data : [];
+      const myActive = Array.isArray(myOffers) ? myOffers.find(o => o.status === 'active') : null;
+      setActiveOffer(myActive);
+      if (seekerRes.status === 'fulfilled') {
+        const normalized = seekerRes.value.data.map(s => ({
+          id: s.id,
+          userId: s.userId,
+          display_name: s.profile.displayName,
+          offerer_age: s.profile.age,
+          offerer_photo: s.profile.photo,
+          is_verified: s.profile.isVerified,
+          location_text: s.locationText,
+          date: s.date,
+          time_from: s.timeFrom,
+          time_until: s.timeUntil,
+          available_seats: s.seatsNeeded,
+          group_description: s.profile.bio,
+          emoji: s.profile.emoji,
+          badges: s.profile.badges,
+          distanceKm: s.distanceKm,
+          _isSeeker: true,
+        }));
+        setAllSeekers(normalized);
+        setOffers(normalized);
+        setCurrentIdx(0);
+      }
+    } catch (err) {
+      toast.error('Suchende konnten nicht geladen werden');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function initWithGeo() {
     if (!navigator.geolocation) { loadOffers(); return; }
@@ -675,7 +731,11 @@ export default function SwipeScreen() {
     if (!offer) return;
 
     try {
-      await api.post('/matching/swipe', { offerId: offer.id, direction });
+      if (isHostMode) {
+        await api.post('/matching/invite-seeker', { seekerUserId: offer.userId, direction });
+      } else {
+        await api.post('/matching/swipe', { offerId: offer.id, direction });
+      }
       if (direction === 'like') {
         toast.success('Anfrage gesendet!');
       }
@@ -688,7 +748,7 @@ export default function SwipeScreen() {
     setCurrentIdx((prev) => prev + 1);
   }
 
-  if (roleLocked) {
+  if (!isHostMode && roleLocked) {
     const co = conflictingOffer;
     const dateFormatted = co?.date
       ? new Date(co.date + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -763,12 +823,25 @@ export default function SwipeScreen() {
     );
   }
 
+  if (isHostMode && !loading && !activeOffer) {
+    return (
+      <div className="flex flex-col h-[80vh] items-center justify-center px-6 text-center">
+        <div className="text-5xl mb-4">🎯</div>
+        <h3 className="text-white font-bold text-lg mb-2">Kein aktives Angebot</h3>
+        <p className="text-white/50 text-sm mb-6">Erstelle zuerst ein Angebot, um Suchende zu entdecken.</p>
+        <button onClick={() => navigate('/offer')} className="px-6 py-3 rounded-2xl text-white font-semibold text-sm" style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
+          Angebot erstellen
+        </button>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[80vh]">
         <div className="text-center">
           <Flame size={48} className="text-tinder-pink mx-auto mb-4 animate-bounce" fill="currentColor" />
-          <p className="text-gray-400">{t('loadingOffers')}</p>
+          <p className="text-gray-400">{isHostMode ? 'Suchende werden geladen…' : t('loadingOffers')}</p>
         </div>
       </div>
     );
@@ -782,8 +855,8 @@ export default function SwipeScreen() {
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('discover')}</h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Aktuelle Angebote in deiner Nähe</p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">{isHostMode ? 'Wer kommt dazu?' : 'Wo ist noch Platz?'}</h1>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{isHostMode ? 'Schau, wer heute noch einen Platz sucht' : 'Aktuelle Angebote in deiner Nähe'}</p>
         </div>
         <div className="flex gap-2 mt-0.5">
           <button onClick={() => setShowSearchOverlay(true)} className={`w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition ${searchApplied ? 'tinder-gradient text-white' : 'bg-gray-100 dark:bg-dark-card text-gray-500'}`}>
@@ -798,8 +871,8 @@ export default function SwipeScreen() {
         </div>
       </div>
 
-      {/* Seeker-Panel */}
-      {activeSearch ? (
+      {/* Seeker-Panel — nur im Seeker-Modus */}
+      {!isHostMode && activeSearch ? (
         <div className="bg-app-violet/10 border border-app-violet/30 rounded-2xl px-4 py-3 mb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -824,26 +897,46 @@ export default function SwipeScreen() {
             </button>
           </div>
         </div>
-      ) : (
-        <div className="bg-dark-elevated/50 border border-white/10 rounded-2xl px-4 py-3 mb-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-white/40">{t('noSearchActive')}</p>
-              <p className="text-xs text-white/25 mt-0.5">{t('noSearchActiveHint')}</p>
-            </div>
-            <button
-              onClick={() => setShowSeekerWizard(true)}
-              className="shrink-0 px-3 py-1.5 rounded-full text-xs text-white font-semibold"
-              style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
-            >
-              {t('startSearch')}
-            </button>
-          </div>
-        </div>
-      )}
+      ) : null}
 
-      {/* Kategorie-Filter Chips */}
-      <div className="relative mb-3">
+      {/* Kategorie-Filter Chips — Host-Modus (client-seitig) */}
+      {isHostMode && <div className="relative mb-3">
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar pr-8">
+          {[
+            { key: 'alle', label: t('categoryAll') },
+            { key: 'clubs', label: '🎵 ' + t('categoryClubs') },
+            { key: 'restaurants', label: '🍽️ ' + t('categoryRestaurants') },
+            { key: 'kultur', label: '🎭 ' + t('categoryKultur') },
+            { key: 'konzert', label: '🎤 ' + t('categoryKonzert') },
+            { key: 'sport_aktiv', label: '🏃 ' + t('categorySportAktiv') },
+            { key: 'sport_event', label: '🏟️ ' + t('categorySportEvent') },
+            { key: 'sonstiges', label: '✨ ' + t('categorySonstiges') },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => {
+                setHostCategoryFilter(key);
+                const filtered = key === 'alle'
+                  ? allSeekers
+                  : allSeekers.filter(s => s.category === key || (!s.category && key === 'sonstiges'));
+                setOffers(filtered);
+                setCurrentIdx(0);
+              }}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition active:scale-95 ${
+                hostCategoryFilter === key
+                  ? 'tinder-gradient text-white border-transparent'
+                  : 'bg-gray-100 dark:bg-dark-card text-gray-600 dark:text-gray-400 border-gray-200 dark:border-dark-separator'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-dark-bg to-transparent" />
+      </div>}
+
+      {/* Kategorie-Filter Chips — nur im Seeker-Modus */}
+      {!isHostMode && <div className="relative mb-3">
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar pr-8">
 
         {[
@@ -871,7 +964,7 @@ export default function SwipeScreen() {
         </div>
         {/* Fade-Indikator rechts */}
         <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-dark-bg to-transparent" />
-      </div>
+      </div>}
 
       {/* Altersfilter */}
       {showFilter && (
@@ -941,6 +1034,44 @@ export default function SwipeScreen() {
           >
             <Heart size={30} className="text-tinder-green" />
           </button>
+        </div>
+      )}
+
+      {/* Angebot erstellen Banner — nur im Host-Modus */}
+      {isHostMode && (
+        <div className="bg-dark-elevated/50 border border-white/10 rounded-2xl px-4 py-3 mt-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-white/40">Platz für einen späteren Termin anbieten?</p>
+              <p className="text-xs text-white/25 mt-0.5">Erstelle ein gezieltes Angebot mit Datum & Zeit.</p>
+            </div>
+            <button
+              onClick={() => navigate('/offer')}
+              className="shrink-0 px-3 py-1.5 rounded-full text-xs text-white font-semibold"
+              style={{ background: 'linear-gradient(135deg, #374151, #9CA3AF)' }}
+            >
+              Angebot erstellen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Suchprofil-Banner — nur im Seeker-Modus ohne aktives Suchprofil */}
+      {!isHostMode && !activeSearch && (
+        <div className="bg-dark-elevated/50 border border-white/10 rounded-2xl px-4 py-3 mt-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-white/40">{t('noSearchActive')}</p>
+              <p className="text-xs text-white/25 mt-0.5">{t('noSearchActiveHint')}</p>
+            </div>
+            <button
+              onClick={() => setShowSeekerWizard(true)}
+              className="shrink-0 px-3 py-1.5 rounded-full text-xs text-white font-semibold"
+              style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
+            >
+              {t('startSearch')}
+            </button>
+          </div>
         </div>
       )}
 

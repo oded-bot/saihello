@@ -156,6 +156,7 @@ export default function MapScreen() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    const mode = location.state?.mode;
     try {
       const [offerRes, searchRes] = await Promise.allSettled([
         api.get('/tables/offers/mine'),
@@ -168,24 +169,27 @@ export default function MapScreen() {
       const activeOffer = Array.isArray(offers) ? offers.find(o => o.status === 'active') : null;
       const activeSearch = search;
 
-      if (activeOffer) {
-        setMyStatus('offer');
-        setMyItem(activeOffer);
-        const pinsRes = await api.get('/map/seeker-pins');
+      if (mode === 'seek') {
+        setMyStatus('search');
+        setMyItem(activeSearch || null);
+        const pinsRes = await api.get('/map/offer-pins');
         setPins(pinsRes.data);
+      } else if (mode === 'offer' || activeOffer) {
+        if (activeOffer) {
+          setMyStatus('offer');
+          setMyItem(activeOffer);
+          const pinsRes = await api.get('/map/seeker-pins');
+          setPins(pinsRes.data);
+        } else {
+          setMyStatus('pending-offer');
+          setMyItem(null);
+          setPins([]);
+        }
       } else if (activeSearch) {
         setMyStatus('search');
         setMyItem(activeSearch);
         const pinsRes = await api.get('/map/offer-pins');
         setPins(pinsRes.data);
-      } else if (navState?.mode === 'offer') {
-        setMyStatus('pending-offer');
-        setMyItem(null);
-        setPins([]);
-      } else if (navState?.mode === 'seek') {
-        setMyStatus('pending-seek');
-        setMyItem(null);
-        setPins([]);
       } else {
         setMyStatus(null);
         setMyItem(null);
@@ -196,7 +200,7 @@ export default function MapScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [location.state?.mode]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -439,7 +443,7 @@ export default function MapScreen() {
 
       {/* Top overlay */}
       <div className="fixed left-0 right-0 px-4 z-[9999] space-y-2" style={{ top: 0, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
-        {(myStatus === 'search' || myStatus === 'offer') && (
+        {myStatus === 'offer' && (
           <div className="flex rounded-2xl overflow-hidden" style={{ background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(124,58,237,0.3)' }}>
             <button className="flex-1 py-2 text-sm font-semibold text-white border-b-2 border-violet-500">Karte</button>
             <button
@@ -455,7 +459,7 @@ export default function MapScreen() {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-white/50 font-medium">
-                  {myStatus === 'offer' ? 'Dein aktives Angebot' : 'Deine aktive Suche'}
+                  {myStatus === 'offer' ? 'Dein aktives Angebot' : myItem ? 'Deine aktive Suche' : 'Angebote in deiner Nähe'}
                 </p>
                 {myItem ? (
                   <>
@@ -467,7 +471,7 @@ export default function MapScreen() {
                     </p>
                   </>
                 ) : (
-                  <p className="text-sm text-white/40">{myStatus === 'search' ? 'Keine Suche aktiv.' : 'Kein Angebot aktiv.'}</p>
+                  <p className="text-sm text-white/40">{myStatus === 'search' ? 'Spontan stöbern – kein Suchprofil nötig.' : 'Kein Angebot aktiv.'}</p>
                 )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
